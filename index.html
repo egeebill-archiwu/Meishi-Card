@@ -1447,6 +1447,26 @@ function writeParsedDataToForm(parsed) {
     return p.company || p.title || p.phone || p.email || p.address;
   });
 
+  // 💡 公司行號分流優化：若 company 包含 "/"，自動拆分為獨立的多個 Profile 行列，確保清爽
+  var splitProfiles = [];
+  incomingProfiles.forEach(function(p) {
+    if (p.company && p.company.indexOf('/') !== -1) {
+      var companyParts = p.company.split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
+      companyParts.forEach(function(comp) {
+        splitProfiles.push({
+          company: comp,
+          title: p.title || '',
+          phone: p.phone || '',
+          email: p.email || '',
+          address: p.address || ''
+        });
+      });
+    } else {
+      splitProfiles.push(p);
+    }
+  });
+  incomingProfiles = splitProfiles;
+
   // 💡 核心優化：跨正/反面身分群組「疊加合併」邏輯
   if (!S.currentProfiles) S.currentProfiles = [];
   
