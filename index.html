@@ -40,9 +40,18 @@
       background: var(--gray-100) !important;
       color: var(--black) !important;
     }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
+<!-- 🤖 AI 辨識動畫載入遮罩 -->
+<div id="ocrLoadingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(5px); z-index:99999; flex-direction:column; align-items:center; justify-content:center; color:#fff;">
+  <div class="ocr-spinner" style="width:50px; height:50px; border:4px solid rgba(255,255,255,0.2); border-radius:50%; border-top-color:#00E676; animation:spin 1s linear infinite; margin-bottom:15px;"></div>
+  <div style="font-size:16px; font-weight:500; letter-spacing:1px;" id="ocrLoadingText">🤖 AI 正在辨識與分析名片中...</div>
+</div>
+
 <div id="app">
 
   <!-- Toast -->
@@ -201,8 +210,8 @@
             <input class="form-input" id="fName" name="name" placeholder="王小明" required>
           </div>
           <div class="form-group">
-            <label class="form-label" for="fPhone">電話</label>
-            <input class="form-input" id="fPhone" name="phone" type="tel" placeholder="02-1234-5678">
+            <label class="form-label" for="fTitle">職稱</label>
+            <input class="form-input" id="fTitle" name="title" placeholder="業務經理">
           </div>
         </div>
 
@@ -212,8 +221,8 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="fTitle">職稱</label>
-          <input class="form-input" id="fTitle" name="title" placeholder="業務經理">
+          <label class="form-label" for="fPhone">電話</label>
+          <input class="form-input" id="fPhone" name="phone" type="tel" placeholder="02-1234-5678">
         </div>
 
         <div class="form-group">
@@ -292,7 +301,7 @@
             placeholder="認識場合、印象、特別備忘…"></textarea>
         </div>
 
-        <button class="btn btn--primary btn--block" id="submitBtn" type="submit">
+        <button class="btn btn--primary btn--block" id="submitBtn" type="submit" style="margin-bottom: 90px;">
           儲存名片
         </button>
       </form>
@@ -1974,6 +1983,7 @@ async function processOcr(compUrl, side) {
 
   toast('🤖 AI 辨識名片文字中，請稍候…', 'info');
   try {
+    document.getElementById('ocrLoadingOverlay').style.display = 'flex';
     var b64  = compUrl.split(',')[1];
     var mime = 'image/jpeg';
 
@@ -2100,6 +2110,8 @@ async function processOcr(compUrl, side) {
   } catch(err) {
     console.warn('[OCR]', err.message);
     toast('❌ ' + (err.message || '辨識失敗，請手動填寫'), 'err');
+  } finally {
+    document.getElementById('ocrLoadingOverlay').style.display = 'none';
   }
 }
 
