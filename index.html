@@ -1786,7 +1786,7 @@ async function processOcr(compUrl, side) {
     if (filled > 0) {
       toast('✅ 已自動整合填入 ' + filled + ' 個欄位，請確認後儲存', 'ok');
     } else {
-      toast('⚠️ 辨識完成但未找到新欄位，請手動填寫', 'info');
+      toast('⚠️ 未填入新欄位。若名片方向歪斜，可按下方【左轉/右轉】翻正，系統會自動重新辨識！', 'info');
     }
 
   } catch(err) {
