@@ -19,6 +19,27 @@
     .flip-card.flipped .flip-card-inner {
       transform: rotateY(180deg);
     }
+    /* Google Lens 智慧文字片段氣泡樣式 */
+    .raw-text-pill {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      outline: none;
+      user-select: none;
+    }
+    .raw-text-pill:hover {
+      background: var(--gray-100);
+      border-color: var(--black);
+    }
+    #pillMenu button:hover {
+      background: var(--gray-100) !important;
+      color: var(--black) !important;
+    }
   </style>
 </head>
 <body>
@@ -204,6 +225,14 @@
         <div class="form-group">
           <label class="form-label" for="fAddress">地址</label>
           <input class="form-input" id="fAddress" name="address" placeholder="台北市中正區…">
+        </div>
+
+        <!-- 🔍 智慧偵測文字段落 (動態產生的 Google Lens 點選氣泡區) -->
+        <div id="rawTextPillsContainer" style="display:none; background:var(--gray-50); border:1px dashed var(--border); padding:15px; border-radius:var(--r-md); margin-bottom:15px;">
+          <label class="form-label" style="font-weight:bold; color:var(--text-main); display:flex; align-items:center; gap:4px; margin-bottom:10px;">
+            🔍 AI 偵測到的文字片段 (點擊可快速填入欄位)：
+          </label>
+          <div id="rawTextPills" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
         </div>
 
         <div class="form-row">
@@ -1343,6 +1372,11 @@ function writeParsedDataToForm(parsed) {
 
   // 3. 預設載入第一個身分群組資訊
   applyProfileData(profiles[0]);
+
+  // 4. 渲染 Google Lens 智慧文字氣泡段落
+  if (parsed.raw_text) {
+    renderRawTextPills(parsed.raw_text);
+  }
   return profiles.length;
 }
 
@@ -1770,13 +1804,13 @@ async function processOcr(compUrl, side) {
     var b64  = compUrl.split(',')[1];
     var mime = 'image/jpeg';
 
-    // 支持多公司與多重身分智慧提取，引導 Gemini 輸出關聯群組結構（profiles 陣列）
+    // 支持多公司與多重身分智慧提取，引導 Gemini 輸出關聯群組結構（profiles 陣列）與原始文字段落（raw_text）
     var prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\\n' +
       '{\\n' +
       '  "name": "姓名（務必去除字元間的空格，如「劉炳界」）",\\n' +
       '  "company": "所有公司或組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\\n' +
       '  "title": "職稱（以 / 分隔）",\\n' +
-      '  "phone": "電話/手機（以 / 分隔，務必掘地三尺辨識出極小的字）",\\n' +
+      '  "phone": "電話/手機（以 / 分隔，務必細心辨識出角落極小的字）",\\n' +
       '  "email": "電子郵件（務必去除所有空格與換行，例如將「hanhua0000@yahoo. com. tw」轉為「hanhua0000@yahoo.com.tw」，以 / 分隔）",\\n' +
       '  "address": "地址（以 / 分隔）",\\n' +
       '  "profiles": [\\n' +
@@ -1787,9 +1821,10 @@ async function processOcr(compUrl, side) {
       '      "email": "此身分的Email（務必去除所有空格，如「hanhua0000@yahoo.com.tw」）",\\n' +
       '      "address": "此身分的地址"\\n' +
       '    }\\n' +
-      '  ]\\n' +
+      '  ],\\n' +
+      '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"]\\n' +
       '}\\n' +
-      '【重要 OCR 注意事項】：請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位與 profiles 陣列中！';
+      '【重要 OCR 注意事項】：請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！';
 
     var resp = await fetch(
       'https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey,
@@ -1803,7 +1838,7 @@ async function processOcr(compUrl, side) {
               { text: prompt }
             ]
           }],
-          generation_config: { temperature: 0.1, max_output_tokens: 512 }
+          generation_config: { temperature: 0.1, max_output_tokens: 2048 }
         })
       }
     );
@@ -2245,6 +2280,144 @@ function clearAllFormSelects() {
     if (input) input.style.display = '';
     s.parentNode.removeChild(s);
   });
+  
+  var masterSelContainer = document.getElementById('profileSelectorContainer');
+  if (masterSelContainer) {
+    masterSelContainer.style.display = 'none';
+    var masterSel = document.getElementById('fProfileSelector');
+    if (masterSel) masterSel.innerHTML = '';
+  }
+
+  // 同步清理 Google Lens 氣泡段落
+  var pillsContainer = document.getElementById('rawTextPillsContainer');
+  if (pillsContainer) pillsContainer.style.display = 'none';
+  var pillsDiv = document.getElementById('rawTextPills');
+  if (pillsDiv) pillsDiv.innerHTML = '';
+}
+
+function renderRawTextPills(rawTextArray) {
+  var pillsContainer = document.getElementById('rawTextPillsContainer');
+  var pillsDiv = document.getElementById('rawTextPills');
+  if (!pillsContainer || !pillsDiv) return;
+  
+  pillsDiv.innerHTML = '';
+  if (!rawTextArray || rawTextArray.length === 0) {
+    pillsContainer.style.display = 'none';
+    return;
+  }
+  
+  rawTextArray.forEach(function(text) {
+    var cleanText = String(text).trim();
+    if (!cleanText) return;
+    
+    var pill = document.createElement('button');
+    pill.type = 'button';
+    pill.className = 'raw-text-pill';
+    pill.textContent = cleanText;
+    
+    pill.onclick = function(e) {
+      showPillMenu(pill, cleanText);
+    };
+    
+    pillsDiv.appendChild(pill);
+  });
+  
+  pillsContainer.style.display = 'block';
+}
+
+function showPillMenu(btn, text) {
+  var oldMenu = document.getElementById('pillMenu');
+  if (oldMenu) oldMenu.parentNode.removeChild(oldMenu);
+  
+  var menu = document.createElement('div');
+  menu.id = 'pillMenu';
+  
+  Object.assign(menu.style, {
+    position: 'absolute',
+    background: 'var(--white)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--r-md)',
+    boxShadow: 'var(--shadow-lg)',
+    padding: '6px 0',
+    zIndex: 10000,
+    display: 'flex',
+    flexDirection: 'column',
+    minWidth: '160px'
+  });
+  
+  var fields = [
+    { label: '👤 填入姓名', id: 'fName' },
+    { label: '📞 填入電話', id: 'fPhone' },
+    { label: '🏢 填入公司', id: 'fCompany' },
+    { label: '💼 填入職稱', id: 'fTitle' },
+    { label: '✉️ 填入 Email', id: 'fEmail' },
+    { label: '📍 填入地址', id: 'fAddress' }
+  ];
+  
+  fields.forEach(function(f) {
+    var item = document.createElement('button');
+    item.type = 'button';
+    item.textContent = f.label;
+    Object.assign(item.style, {
+      background: 'none',
+      border: 'none',
+      padding: '8px 16px',
+      textAlign: 'left',
+      fontSize: '12px',
+      color: 'var(--text-main)',
+      cursor: 'pointer',
+      width: '100%',
+      outline: 'none',
+      transition: 'background 0.15s ease'
+    });
+    
+    item.onclick = function(e) {
+      e.stopPropagation();
+      var input = document.getElementById(f.id);
+      if (input) {
+        var select = input.parentNode.querySelector('.dynamic-select');
+        if (select) {
+          var exists = false;
+          for (var i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === text) { exists = true; select.value = text; break; }
+          }
+          if (!exists) {
+            var newOpt = document.createElement('option');
+            newOpt.value = text;
+            newOpt.textContent = text;
+            select.insertBefore(newOpt, select.lastChild);
+            select.value = text;
+          }
+        }
+        input.value = text;
+        
+        var ev = new Event('change', { bubbles: true });
+        input.dispatchEvent(ev);
+        toast('✅ 已填入: ' + text, 'ok');
+      }
+      menu.parentNode.removeChild(menu);
+    };
+    menu.appendChild(item);
+  });
+  
+  setTimeout(function() {
+    function closeMenu(e) {
+      if (!menu.contains(e.target) && e.target !== btn) {
+        if (menu.parentNode) menu.parentNode.removeChild(menu);
+        document.removeEventListener('click', closeMenu);
+      }
+    }
+    document.addEventListener('click', closeMenu);
+  }, 10);
+  
+  document.body.appendChild(menu);
+  
+  var rect = btn.getBoundingClientRect();
+  var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+  var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+  
+  menu.style.top = (rect.bottom + scrollTop + 4) + 'px';
+  menu.style.left = (rect.left + scrollLeft) + 'px';
 }
 
 
