@@ -646,6 +646,8 @@ var S = {
   geminiKey: '',
   geminiModel: 'gemini-2.5-flash',
   editId: null,
+  currentProfiles: [],
+  currentRawText: [],
 };
 
 // ────────────────────────────────────────────
@@ -1047,6 +1049,8 @@ function onAddPage() {
   if (!S.editId) {
     document.getElementById('addPageTitle').textContent = '新增名片';
     document.getElementById('addForm').reset();
+    S.currentProfiles = [];
+    S.currentRawText = [];
     clearAllFormSelects();
     
     var prev = document.getElementById('scanPreview'); prev.style.display='none'; prev.src='';
@@ -1317,9 +1321,9 @@ function writeParsedDataToForm(parsed) {
   }
 
   // 1. 解析出結構化的身分群組 (Profiles)
-  var profiles = [];
+  var incomingProfiles = [];
   if (parsed.profiles && Array.isArray(parsed.profiles)) {
-    profiles = parsed.profiles;
+    incomingProfiles = parsed.profiles;
   } else {
     // 備援方案：將舊扁平格式轉為身分群組
     function splitFlatVal(val) {
@@ -1334,7 +1338,7 @@ function writeParsedDataToForm(parsed) {
     
     var count = Math.max(companies.length, titles.length, 1);
     for (var i = 0; i < count; i++) {
-      profiles.push({
+      incomingProfiles.push({
         company: companies[i] || companies[0] || '',
         title: titles[i] || titles[0] || '',
         phone: phones[i] || phones[0] || '',
@@ -1345,20 +1349,59 @@ function writeParsedDataToForm(parsed) {
   }
 
   // 過濾掉全空的 Profile
-  profiles = profiles.filter(function(p) {
+  incomingProfiles = incomingProfiles.filter(function(p) {
     return p.company || p.title || p.phone || p.email || p.address;
   });
 
-  if (profiles.length === 0) return 0;
+  // 💡 核心優化：跨正/反面身分群組「疊加合併」邏輯
+  if (!S.currentProfiles) S.currentProfiles = [];
+  
+  incomingProfiles.forEach(function(ip) {
+    var exists = false;
+    for (var i = 0; i < S.currentProfiles.length; i++) {
+      var ep = S.currentProfiles[i];
+      if (ep.company.trim() === ip.company.trim() && ep.title.trim() === ip.title.trim()) {
+        exists = true;
+        // 合併多組電話
+        if (ip.phone) {
+          var epPhones = ep.phone.split(/\s*\/\s*/).map(s => s.trim());
+          ip.phone.split(/\s*\/\s*/).forEach(function(phonePart) {
+            var cp = phonePart.trim();
+            if (cp && epPhones.indexOf(cp) === -1) epPhones.push(cp);
+          });
+          ep.phone = epPhones.join(' / ');
+        }
+        // 合併 Email
+        if (ip.email) {
+          var epEmails = ep.email.split(/\s*\/\s*/).map(s => s.trim());
+          ip.email.split(/\s*\/\s*/).forEach(function(emailPart) {
+            var ce = emailPart.trim();
+            if (ce && epEmails.indexOf(ce) === -1) epEmails.push(ce);
+          });
+          ep.email = epEmails.join(' / ');
+        }
+        // 合併地址
+        if (ip.address && ep.address.indexOf(ip.address) === -1) {
+          ep.address = ip.address;
+        }
+        break;
+      }
+    }
+    if (!exists) {
+      S.currentProfiles.push(ip);
+    }
+  });
+
+  if (S.currentProfiles.length === 0) return 0;
 
   var masterContainer = document.getElementById('profileSelectorContainer');
   var masterSelector = document.getElementById('fProfileSelector');
 
   // 2. 如果有多重身分組，顯示主選擇器
-  if (profiles.length > 1) {
+  if (S.currentProfiles.length > 1) {
     if (masterSelector && masterContainer) {
       masterSelector.innerHTML = '';
-      profiles.forEach(function(p, idx) {
+      S.currentProfiles.forEach(function(p, idx) {
         var opt = document.createElement('option');
         opt.value = idx;
         opt.textContent = (idx + 1) + '. ' + (p.company || '無公司') + ' (' + (p.title || '無職稱') + ')';
@@ -1367,21 +1410,33 @@ function writeParsedDataToForm(parsed) {
       masterContainer.style.display = 'block';
       
       masterSelector.onchange = function() {
-        applyProfileData(profiles[this.value]);
+        applyProfileData(S.currentProfiles[this.value]);
       };
     }
   } else {
     if (masterContainer) masterContainer.style.display = 'none';
   }
 
-  // 3. 預設載入第一個身分群組資訊
-  applyProfileData(profiles[0]);
+  // 3. 預設載入最新追加的身分資訊 (通常是反面)，讓使用者知道有成功解析，但可在頂部隨時切換回正面
+  var defaultIdx = S.currentProfiles.length - 1;
+  if (masterSelector) masterSelector.value = defaultIdx;
+  applyProfileData(S.currentProfiles[defaultIdx]);
 
-  // 4. 渲染 Google Lens 智慧文字氣泡段落
-  if (parsed.raw_text) {
-    renderRawTextPills(parsed.raw_text);
+  // 4. 疊加 Google Lens 原始文字氣泡段落
+  if (!S.currentRawText) S.currentRawText = [];
+  if (parsed.raw_text && Array.isArray(parsed.raw_text)) {
+    parsed.raw_text.forEach(function(t) {
+      var clean = String(t).trim();
+      if (clean && S.currentRawText.indexOf(clean) === -1) {
+        S.currentRawText.push(clean);
+      }
+    });
   }
-  return profiles.length;
+  
+  if (S.currentRawText.length > 0) {
+    renderRawTextPills(S.currentRawText);
+  }
+  return S.currentProfiles.length;
 }
 
 // 實體欄位寫入與子下拉選單同步函數
