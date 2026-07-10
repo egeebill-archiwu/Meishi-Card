@@ -1139,8 +1139,20 @@ function startAutoShutterCountdown() {
 }
 
 function triggerAutoCapture() {
-  playCameraSound(); // 咔嚓！
-  captureSnapshotAuto();
+  var cd = document.getElementById('shutterCountdown');
+  if (cd) {
+    cd.textContent = '📸 嗶！請保持不動...';
+    cd.style.color = '#00E676';
+  }
+  
+  // 📸 第一聲快門（預備快門：提示使用者定格防手震）
+  playCameraSound();
+  
+  // 延遲 800ms 進行第二聲快門（正式快門：此時手已穩，進行正式擷取與關閉相機）
+  setTimeout(function() {
+    playCameraSound();
+    captureSnapshotAuto();
+  }, 800);
 }
 
 function captureSnapshotAuto() {
@@ -1305,6 +1317,28 @@ function writeParsedDataToForm(parsed) {
         filled++;
       }
       renderCandidateChips(el, candidates);
+    }
+    
+    // 💡 邏輯連動：當地址 (address) 欄位填入時，自動擷取其中的台灣縣市，同步選擇「區域」下拉選單
+    if (k === 'address') {
+      var regionEl = document.getElementById('fRegion');
+      var addressVal = el.value.trim();
+      if (regionEl && addressVal && !regionEl.value) {
+        var regions = [
+          '台北市', '新北市', '桃園市', '台中市', '台南市', '高雄市', 
+          '基隆市', '新竹市', '嘉義市', '新竹縣', '苗栗縣', '彰化縣', 
+          '南投縣', '雲林縣', '嘉義縣', '屏東縣', '宜蘭縣', '花蓮縣', 
+          '台東縣', '澎湖縣', '金門縣', '連江縣'
+        ];
+        for (var i = 0; i < regions.length; i++) {
+          var r = regions[i];
+          // 支援完整名 (如新北市) 或 簡寫名 (如新北) 的匹配
+          if (addressVal.indexOf(r) !== -1 || addressVal.indexOf(r.substring(0, 2)) !== -1) {
+            regionEl.value = r;
+            break;
+          }
+        }
+      }
     }
   });
   
