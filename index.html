@@ -166,6 +166,14 @@
         <input type="hidden" id="fBgHex" name="bgHex">
         <input type="hidden" id="fEditId" name="editId">
 
+        <!-- 👔 選擇名片身分組 (動態產生的主下拉選單) -->
+        <div id="profileSelectorContainer" style="display:none; background:var(--gray-50); border:1px solid var(--border); padding:12px; border-radius:var(--r-md); margin-bottom:15px;">
+          <label class="form-label" style="font-weight:bold; color:var(--text-main); display:flex; align-items:center; gap:4px; margin-bottom:6px;">
+            👔 偵測到多重身份，請選擇要套用的名片資訊：
+          </label>
+          <select class="form-select" id="fProfileSelector" style="width:100%; height:38px; border:1px solid var(--border); border-radius:var(--r-md); background-color:var(--white); font-size:13px; outline:none; padding:0 10px;"></select>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="fName">姓名 *</label>
@@ -1269,57 +1277,109 @@ function savePhotoAndGo() {
 }
 
 function writeParsedDataToForm(parsed) {
-  var map = { name:'fName', company:'fCompany', title:'fTitle',
-              phone:'fPhone', email:'fEmail', address:'fAddress' };
-  var filled = 0;
-  
+  var name = parsed.name ? String(parsed.name).trim() : '';
+  if (name) {
+    var nameEl = document.getElementById('fName');
+    if (nameEl) nameEl.value = name;
+  }
+
+  // 1. 解析出結構化的身分群組 (Profiles)
+  var profiles = [];
+  if (parsed.profiles && Array.isArray(parsed.profiles)) {
+    profiles = parsed.profiles;
+  } else {
+    // 備援方案：將舊扁平格式轉為身分群組
+    function splitFlatVal(val) {
+      if (!val) return [];
+      return String(val).split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
+    }
+    var companies = splitFlatVal(parsed.company);
+    var titles = splitFlatVal(parsed.title);
+    var phones = splitFlatVal(parsed.phone);
+    var emails = splitFlatVal(parsed.email);
+    var addresses = splitFlatVal(parsed.address);
+    
+    var count = Math.max(companies.length, titles.length, 1);
+    for (var i = 0; i < count; i++) {
+      profiles.push({
+        company: companies[i] || companies[0] || '',
+        title: titles[i] || titles[0] || '',
+        phone: phones[i] || phones[0] || '',
+        email: emails[i] || emails[0] || '',
+        address: addresses[i] || addresses[0] || ''
+      });
+    }
+  }
+
+  // 過濾掉全空的 Profile
+  profiles = profiles.filter(function(p) {
+    return p.company || p.title || p.phone || p.email || p.address;
+  });
+
+  if (profiles.length === 0) return 0;
+
+  var masterContainer = document.getElementById('profileSelectorContainer');
+  var masterSelector = document.getElementById('fProfileSelector');
+
+  // 2. 如果有多重身分組，顯示主選擇器
+  if (profiles.length > 1) {
+    if (masterSelector && masterContainer) {
+      masterSelector.innerHTML = '';
+      profiles.forEach(function(p, idx) {
+        var opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = (idx + 1) + '. ' + (p.company || '無公司') + ' (' + (p.title || '無職稱') + ')';
+        masterSelector.appendChild(opt);
+      });
+      masterContainer.style.display = 'block';
+      
+      masterSelector.onchange = function() {
+        applyProfileData(profiles[this.value]);
+      };
+    }
+  } else {
+    if (masterContainer) masterContainer.style.display = 'none';
+  }
+
+  // 3. 預設載入第一個身分群組資訊
+  applyProfileData(profiles[0]);
+  return profiles.length;
+}
+
+// 實體欄位寫入與子下拉選單同步函數
+function applyProfileData(profile) {
+  // 清理舊的下拉選單
+  clearAllFormSelects();
+
+  var map = {
+    company: 'fCompany',
+    title: 'fTitle',
+    phone: 'fPhone',
+    email: 'fEmail',
+    address: 'fAddress'
+  };
+
   Object.keys(map).forEach(function(k) {
     var el = document.getElementById(map[k]);
     if (!el) return;
+
+    var val = profile[k] ? String(profile[k]).trim() : '';
+    el.value = ''; // 先排空
     
-    var newVal = parsed[k] ? String(parsed[k]).trim() : '';
-    if (!newVal) return;
-    
-    var oldVal = el.value.trim();
-    var candidates = [];
-    
-    function addCandidatesFromText(text) {
-      if (!text) return;
-      var parts = text.split(/\s*\/\s*/);
-      parts.forEach(function(p) {
-        var clean = p.trim();
-        clean = clean.replace(/\s+/g, ' ');
-        if (clean && candidates.indexOf(clean) === -1) {
-          candidates.push(clean);
-        }
-      });
-    }
-    
-    addCandidatesFromText(oldVal);
-    addCandidatesFromText(newVal);
-    
+    if (!val) return;
+
+    // 將單一欄位內用 " / " 分隔的多組值再作切分 (如一個公司有兩支電話)
+    var candidates = val.split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
     if (candidates.length === 0) return;
-    
+
     if (candidates.length === 1) {
-      if (oldVal !== candidates[0]) {
-        el.value = candidates[0];
-        filled++;
-      }
-      var nextEl = el.nextElementSibling;
-      if (nextEl && nextEl.classList.contains('dynamic-select')) {
-        nextEl.parentNode.removeChild(nextEl);
-      }
+      el.value = candidates[0];
     } else {
-      var currentVal = oldVal;
-      if (!currentVal || candidates.indexOf(currentVal) === -1) {
-        currentVal = candidates[0];
-        el.value = currentVal;
-        filled++;
-      }
+      el.value = candidates[0];
       renderCandidateSelect(el, candidates);
     }
-    
-    // 💡 邏輯連動：當地址 (address) 欄位填入時，自動擷取其中的台灣縣市，同步選擇「區域」下拉選單
+
+    // 💡 邏輯連動：當地址填入時，自動解析「區域」
     if (k === 'address') {
       var regionEl = document.getElementById('fRegion');
       var addressVal = el.value.trim();
@@ -1332,7 +1392,6 @@ function writeParsedDataToForm(parsed) {
         ];
         for (var i = 0; i < regions.length; i++) {
           var r = regions[i];
-          // 支援完整名 (如新北市) 或 簡寫名 (如新北) 的匹配
           if (addressVal.indexOf(r) !== -1 || addressVal.indexOf(r.substring(0, 2)) !== -1) {
             regionEl.value = r;
             break;
@@ -1341,8 +1400,6 @@ function writeParsedDataToForm(parsed) {
       }
     }
   });
-  
-  return filled;
 }
 
 
@@ -1713,8 +1770,26 @@ async function processOcr(compUrl, side) {
     var b64  = compUrl.split(',')[1];
     var mime = 'image/jpeg';
 
-    // 支持多公司與多重身分智慧提取，並放寬公司/組織定義、要求姓名去空格
-    var prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下欄位，找不到的留空字串：\n{"name":"姓名","company":"公司或組織名稱（包含學會、協會、公會、機關、學校、行號等）","title":"職稱","phone":"電話","email":"電子郵件","address":"地址"}\n【重要 OCR 注意事項】：請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址（包含縣市、區、路、街、巷、號、樓等）」、「Email（包含@的字串）」以及「電話（包含括號市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識填入 address、email 與 phone 欄位！若有多重公司/身分則以 " / " 分隔。\n【重要格式要求】：1. 姓名（name）欄位請務必「去除字元之間的空格」（例如將「劉 炳 界」轉為無空格的「劉炳界」）；2. 電子郵件（email）欄位請務必「去除任何空格或字元斷開」（例如將「hanhua0000@yahoo. com. tw」轉為無空格的「hanhua0000@yahoo.com.tw」），以利程式去重。只輸出JSON，不要其他贅字。';
+    // 支持多公司與多重身分智慧提取，引導 Gemini 輸出關聯群組結構（profiles 陣列）
+    var prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\\n' +
+      '{\\n' +
+      '  "name": "姓名（務必去除字元間的空格，如「劉炳界」）",\\n' +
+      '  "company": "所有公司或組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\\n' +
+      '  "title": "職稱（以 / 分隔）",\\n' +
+      '  "phone": "電話/手機（以 / 分隔，務必掘地三尺辨識出極小的字）",\\n' +
+      '  "email": "電子郵件（務必去除所有空格與換行，例如將「hanhua0000@yahoo. com. tw」轉為「hanhua0000@yahoo.com.tw」，以 / 分隔）",\\n' +
+      '  "address": "地址（以 / 分隔）",\\n' +
+      '  "profiles": [\\n' +
+      '    {\\n' +
+      '      "company": "此身分的公司/組織名稱",\\n' +
+      '      "title": "此身分的職稱",\\n' +
+      '      "phone": "此身分的電話（多個以 / 分隔）",\\n' +
+      '      "email": "此身分的Email（務必去除所有空格，如「hanhua0000@yahoo.com.tw」）",\\n' +
+      '      "address": "此身分的地址"\\n' +
+      '    }\\n' +
+      '  ]\\n' +
+      '}\\n' +
+      '【重要 OCR 注意事項】：請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位與 profiles 陣列中！';
 
     var resp = await fetch(
       'https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey,
