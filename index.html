@@ -1006,6 +1006,7 @@ function onAddPage() {
   if (!S.editId) {
     document.getElementById('addPageTitle').textContent = '新增名片';
     document.getElementById('addForm').reset();
+    clearAllFormChips();
     
     var prev = document.getElementById('scanPreview'); prev.style.display='none'; prev.src='';
     var rc = document.getElementById('rotateControl'); if (rc) rc.style.display='none';
@@ -1259,36 +1260,55 @@ function writeParsedDataToForm(parsed) {
   var map = { name:'fName', company:'fCompany', title:'fTitle',
               phone:'fPhone', email:'fEmail', address:'fAddress' };
   var filled = 0;
+  
   Object.keys(map).forEach(function(k) {
     var el = document.getElementById(map[k]);
-    if (el && parsed[k]) {
-      var newVal = String(parsed[k]).trim();
-      if (newVal) {
-        if (!el.value) {
-          el.value = newVal;
-          filled++;
-        } else {
-          var oldVal = el.value.trim();
-          if (k === 'name') {
-            var cleanOld = oldVal.replace(/\s*\([^)]*\)/g, '').trim();
-            if (cleanOld !== newVal && oldVal.indexOf(newVal) === -1) {
-              el.value = oldVal + ' (' + newVal + ')';
-              filled++;
-            }
-          } else {
-            var parts = oldVal.split(/\s*\/\s*/);
-            if (parts.indexOf(newVal) === -1) {
-              el.value = oldVal + ' / ' + newVal;
-              filled++;
-            }
-          }
+    if (!el) return;
+    
+    var newVal = parsed[k] ? String(parsed[k]).trim() : '';
+    if (!newVal) return;
+    
+    var oldVal = el.value.trim();
+    var candidates = [];
+    
+    function addCandidatesFromText(text) {
+      if (!text) return;
+      var parts = text.split(/\s*\/\s*/);
+      parts.forEach(function(p) {
+        var clean = p.trim();
+        clean = clean.replace(/\s+/g, ' ');
+        if (clean && candidates.indexOf(clean) === -1) {
+          candidates.push(clean);
         }
+      });
+    }
+    
+    addCandidatesFromText(oldVal);
+    addCandidatesFromText(newVal);
+    
+    if (candidates.length === 0) return;
+    
+    if (candidates.length === 1) {
+      if (oldVal !== candidates[0]) {
+        el.value = candidates[0];
+        filled++;
       }
+      var nextEl = el.nextElementSibling;
+      if (nextEl && nextEl.classList.contains('form-chips-wrap')) {
+        nextEl.parentNode.removeChild(nextEl);
+      }
+    } else {
+      var currentVal = oldVal;
+      if (!currentVal || candidates.indexOf(currentVal) === -1) {
+        currentVal = candidates[0];
+        el.value = currentVal;
+        filled++;
+      }
+      renderCandidateChips(el, candidates);
     }
   });
-  if (filled > 0) {
-    toast('✅ 已自動歸檔並填入 ' + filled + ' 個欄位', 'ok');
-  }
+  
+  return filled;
 }
 
 
@@ -1703,37 +1723,8 @@ async function processOcr(compUrl, side) {
     try   { parsed = JSON.parse(jt); }
     catch (ex) { parsed = extractFromText(rawText); }
 
-    // 智慧去重追加合併
-    var map = { name:'fName', company:'fCompany', title:'fTitle',
-                phone:'fPhone', email:'fEmail', address:'fAddress' };
-    var filled = 0;
-    Object.keys(map).forEach(function(k) {
-      var el = document.getElementById(map[k]);
-      if (el && parsed[k]) {
-        var newVal = String(parsed[k]).trim();
-        if (newVal) {
-          if (!el.value) {
-            el.value = newVal;
-            filled++;
-          } else {
-            var oldVal = el.value.trim();
-            if (k === 'name') {
-              var cleanOld = oldVal.replace(/\s*\([^)]*\)/g, '').trim();
-              if (cleanOld !== newVal && oldVal.indexOf(newVal) === -1) {
-                el.value = oldVal + ' (' + newVal + ')';
-                filled++;
-              }
-            } else {
-              var parts = oldVal.split(/\s*\/\s*/);
-              if (parts.indexOf(newVal) === -1) {
-                el.value = oldVal + ' / ' + newVal;
-                filled++;
-              }
-            }
-          }
-        }
-      }
-    });
+    // 統一調用去重與晶片標籤渲染邏輯
+    var filled = writeParsedDataToForm(parsed);
 
     // ── 全自動 3D 透視拉平與背景切除 ──
     if (parsed.corners && parsed.corners.tl && parsed.corners.tr && parsed.corners.br && parsed.corners.bl) {
@@ -1858,6 +1849,7 @@ async function submitCard(e) {
       toast('名片已新增 🎉', 'ok');
     }
     S.editId = null;
+    clearAllFormChips();
     goTo('home');
   } catch(err) {
     toast('儲存失敗：'+err.message, 'err');
@@ -2057,6 +2049,136 @@ function toggleEye(id) {
   var el = document.getElementById(id);
   el.type = el.type === 'password' ? 'text' : 'password';
 }
+
+// ────────────────────────────────────────────
+// AI 候選值晶片標籤輔助函數 (Candidate Chips)
+// ────────────────────────────────────────────
+function renderCandidateChips(inputEl, candidates) {
+  var nextEl = inputEl.nextElementSibling;
+  if (nextEl && nextEl.classList.contains('form-chips-wrap')) {
+    nextEl.parentNode.removeChild(nextEl);
+  }
+  
+  if (!candidates || candidates.length <= 1) return;
+  
+  var wrap = document.createElement('div');
+  wrap.className = 'form-chips-wrap';
+  wrap.style.display = 'flex';
+  wrap.style.flexWrap = 'wrap';
+  wrap.style.gap = '6px';
+  wrap.style.marginTop = '6px';
+  wrap.style.marginBottom = '2px';
+  
+  candidates.forEach(function(cand) {
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'form-chip';
+    chip.textContent = cand;
+    
+    Object.assign(chip.style, {
+      background: 'var(--gray-100)',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--r-full)',
+      padding: '4px 10px',
+      fontSize: '11px',
+      color: 'var(--text-sub)',
+      cursor: 'pointer',
+      transition: 'all 0.15s ease',
+      outline: 'none'
+    });
+    
+    if (inputEl.value.trim() === cand) {
+      highlightChip(chip);
+    }
+    
+    chip.onclick = function() {
+      inputEl.value = cand;
+      var ev = new Event('change', { bubbles: true });
+      inputEl.dispatchEvent(ev);
+      
+      var siblingChips = wrap.querySelectorAll('.form-chip');
+      siblingChips.forEach(c => resetChipStyle(c));
+      highlightChip(chip);
+    };
+    
+    wrap.appendChild(chip);
+  });
+  
+  // 「全部合併保留」晶片
+  var mergeChip = document.createElement('button');
+  mergeChip.type = 'button';
+  mergeChip.className = 'form-chip form-chip--merge';
+  mergeChip.textContent = '➕ 全部保留 (合併)';
+  Object.assign(mergeChip.style, {
+    background: '#FFF8E1',
+    border: '1px solid #FFE082',
+    borderRadius: 'var(--r-full)',
+    padding: '4px 10px',
+    fontSize: '11px',
+    color: '#F57F17',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+    outline: 'none'
+  });
+  
+  var allJoined = candidates.join(' / ');
+  if (inputEl.value.trim() === allJoined) {
+    highlightMergeChip(mergeChip);
+  }
+  
+  mergeChip.onclick = function() {
+    inputEl.value = allJoined;
+    var ev = new Event('change', { bubbles: true });
+    inputEl.dispatchEvent(ev);
+    
+    var siblingChips = wrap.querySelectorAll('.form-chip');
+    siblingChips.forEach(c => resetChipStyle(c));
+    highlightMergeChip(mergeChip);
+  };
+  
+  wrap.appendChild(mergeChip);
+  inputEl.parentNode.insertBefore(wrap, inputEl.nextSibling);
+}
+
+function highlightChip(el) {
+  el.style.background = 'var(--black)';
+  el.style.borderColor = 'var(--black)';
+  el.style.color = 'var(--white)';
+  el.style.fontWeight = 'bold';
+}
+
+function highlightMergeChip(el) {
+  el.style.background = '#FFD54F';
+  el.style.borderColor = '#FFC107';
+  el.style.color = '#5D4037';
+  el.style.fontWeight = 'bold';
+}
+
+function resetChipStyle(el) {
+  if (el.classList.contains('form-chip--merge')) {
+    Object.assign(el.style, {
+      background: '#FFF8E1',
+      borderColor: '#FFE082',
+      color: '#F57F17',
+      fontWeight: 'normal'
+    });
+  } else {
+    Object.assign(el.style, {
+      background: 'var(--gray-100)',
+      borderColor: 'var(--border)',
+      color: 'var(--text-sub)',
+      fontWeight: 'normal'
+    });
+  }
+}
+
+function clearAllFormChips() {
+  var wraps = document.querySelectorAll('.form-chips-wrap');
+  wraps.forEach(function(w) {
+    w.parentNode.removeChild(w);
+  });
+}
+
 
 // ────────────────────────────────────────────
 // 匯出
