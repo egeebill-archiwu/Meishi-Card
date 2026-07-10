@@ -504,10 +504,25 @@
               <button class="api-eye" type="button" onclick="toggleEye('geminiKey')">👁️</button>
             </div>
           </div>
+          <!-- 模型選單 -->
+          <div class="form-group" style="margin-top:var(--sp-md);margin-bottom:var(--sp-md);">
+            <label class="form-label">指定 AI 模型 (Gemini Model)</label>
+            <select class="form-input" id="geminiModel" onchange="saveGeminiModel()" style="background:var(--white);border:1px solid var(--border);border-radius:var(--r-md);height:38px;padding:0 var(--sp-sm);width:100%;font-size:13px;">
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash (推薦：速度最快、輕量)</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro (進階：辨識力強、速度一般)</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash (最新主流：速度快、辨識優)</option>
+              <option value="gemini-2.0-flash-thinking-exp">Gemini 2.0 Thinking (思考模型：超強邏輯)</option>
+            </select>
+          </div>
+
           <div style="display:flex;gap:8px;">
             <button class="btn btn--primary btn--sm" style="flex:1" onclick="saveGeminiKey()">儲存 API Key</button>
             <button class="btn btn--outline btn--sm" style="flex:1" type="button" onclick="testApiKey()">測試連線</button>
           </div>
+
+          <!-- 即時連線報告顯示區 -->
+          <div id="apiTestReport" style="display:none;margin-top:12px;padding:var(--sp-md);border-radius:var(--r-md);font-size:12px;line-height:1.6;border:1px solid var(--border);"></div>
+
           <p style="font-size:12px;color:var(--text-hint);margin-top:10px;line-height:1.7;">
             ▸ 前往 <strong>aistudio.google.com</strong> 即可免費取得<br>
             ▸ Key 只儲存在本機，不會上傳至任何伺服器<br>
@@ -587,6 +602,7 @@ var S = {
   query: '',
   ind: 'all',
   geminiKey: '',
+  geminiModel: 'gemini-1.5-flash',
   editId: null,
 };
 
@@ -1939,6 +1955,11 @@ function shareMyCard() {
 async function loadSettings() {
   var key = await metaGet('geminiKey');
   if (key) { S.geminiKey = key; document.getElementById('geminiKey').value = key; }
+  
+  var model = await metaGet('geminiModel') || 'gemini-1.5-flash';
+  S.geminiModel = model;
+  document.getElementById('geminiModel').value = model;
+  
   updateApiStatus();
 }
 
@@ -1972,25 +1993,60 @@ function saveGeminiKey() {
   });
 }
 
+function saveGeminiModel() {
+  var val = document.getElementById('geminiModel').value;
+  S.geminiModel = val;
+  metaSet('geminiModel', val).then(function() {
+    toast('🤖 模型已切換為：' + val, 'ok');
+  });
+}
+
 async function testApiKey() {
   var val = document.getElementById('geminiKey').value.trim();
   if (!val) { toast('請先輸入 API Key', 'err'); return; }
-  toast('🔍 正在測試 API 金鑰連線...', 'info');
+  
+  var reportEl = document.getElementById('apiTestReport');
+  reportEl.style.display = 'block';
+  reportEl.style.background = 'var(--gray-50)';
+  reportEl.style.borderColor = 'var(--border)';
+  reportEl.style.color = 'var(--text-main)';
+  reportEl.innerHTML = '⚡️ 正在連線測試 Google API 伺服器...';
+  
   try {
     var resp = await fetch('https://generativelanguage.googleapis.com/v1/models?key=' + val);
     if (!resp.ok) {
       var errJson = await resp.json().catch(function(){ return {}; });
       var errMsg = (errJson.error && errJson.error.message) || 'HTTP ' + resp.status;
-      alert('❌ 連線失敗！Google 回傳錯誤：\n\n' + errMsg);
+      reportEl.style.background = '#FFF5F5';
+      reportEl.style.borderColor = '#FFCDD2';
+      reportEl.style.color = '#B71C1C';
+      reportEl.innerHTML = '❌ <b>連線診斷失敗！</b><br>狀態碼: ' + resp.status + '<br>Google 回傳原因: ' + errMsg;
       return;
     }
+    
     var data = await resp.json();
     var models = data.models || [];
     var modelNames = models.map(function(m){ return m.name.replace('models/', ''); });
     var list = modelNames.filter(function(n){ return n.includes('gemini'); });
-    alert('✅ 連線成功！\n您的 API Key 可以正常使用。\n\n可用 Gemini 模型：\n' + list.slice(0, 5).join('\n') + (list.length > 5 ? '\n...' : ''));
+    
+    // 檢查當前選擇的模型是否包含在可用名單中
+    var currentModel = document.getElementById('geminiModel').value;
+    var isSupported = modelNames.indexOf(currentModel) !== -1;
+    
+    reportEl.style.background = '#F1F8E9';
+    reportEl.style.borderColor = '#C5E1A5';
+    reportEl.style.color = '#33691E';
+    
+    var statusHtml = '✅ <b>連線測試成功！您的 API 金鑰有效。</b><br>';
+    statusHtml += '🎯 當前選擇模型 <b>' + currentModel + '</b>: ' + (isSupported ? '🟢 支援且可用' : '🔴 不支援，請更換') + '<br>';
+    statusHtml += '📦 您的帳戶支援的 Gemini 模型包括：<br>• ' + list.slice(0, 5).join('<br>• ') + (list.length > 5 ? '<br>• ...' : '');
+    
+    reportEl.innerHTML = statusHtml;
   } catch(err) {
-    alert('❌ 連線失敗！請確認網路是否正常，或金鑰是否正確。\n錯誤詳情：' + err.message);
+    reportEl.style.background = '#FFF5F5';
+    reportEl.style.borderColor = '#FFCDD2';
+    reportEl.style.color = '#B71C1C';
+    reportEl.innerHTML = '❌ <b>連線異常！</b><br>請檢查網路，或確認 API Key 格式。<br>錯誤詳情: ' + err.message;
   }
 }
 
