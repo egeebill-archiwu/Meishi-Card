@@ -228,10 +228,15 @@
         </div>
 
         <!-- 🔍 智慧偵測文字段落 (動態產生的 Google Lens 點選氣泡區) -->
-        <div id="rawTextPillsContainer" style="display:none; background:var(--gray-50); border:1px dashed var(--border); padding:15px; border-radius:var(--r-md); margin-bottom:15px;">
-          <label class="form-label" style="font-weight:bold; color:var(--text-main); display:flex; align-items:center; gap:4px; margin-bottom:10px;">
-            🔍 AI 偵測到的文字片段 (點擊可快速填入欄位)：
-          </label>
+        <div id="rawTextPillsContainer" style="display:none; background:var(--gray-50); border:1px dashed var(--border); padding:15px; border-radius:var(--r-md); margin-bottom:15px; position:relative;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <label class="form-label" style="font-weight:bold; color:var(--text-main); margin-bottom:0; display:flex; align-items:center; gap:4px;">
+              🔍 AI 偵測到的文字片段 (點擊可快速填入欄位)：
+            </label>
+            <button type="button" onclick="document.getElementById('rawTextPillsContainer').style.display='none'" style="background:none; border:none; font-size:12px; color:var(--text-sub); cursor:pointer; padding:4px 8px; border-radius:var(--r-sm); transition:background 0.15s ease;">
+              ✖ 隱藏
+            </button>
+          </div>
           <div id="rawTextPills" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
         </div>
 
@@ -2375,25 +2380,34 @@ function showPillMenu(btn, text) {
       e.stopPropagation();
       var input = document.getElementById(f.id);
       if (input) {
+        // 💡 智慧清前綴：自動過濾 'E-MAIL : ', '電話 : ', '地址 : ' 等常見前綴標籤
+        var valToFill = text.trim();
+        valToFill = valToFill.replace(/^(email|e-mail|tel|phone|mobile|fax|addr|address|電話|手機|傳真|地址|信箱|郵件)\s*[:：\s]\s*/i, '').trim();
+        
+        // 💡 Email 專屬：自動去除所有內部空格
+        if (f.id === 'fEmail') {
+          valToFill = valToFill.replace(/\s+/g, '');
+        }
+
         var select = input.parentNode.querySelector('.dynamic-select');
         if (select) {
           var exists = false;
           for (var i = 0; i < select.options.length; i++) {
-            if (select.options[i].value === text) { exists = true; select.value = text; break; }
+            if (select.options[i].value === valToFill) { exists = true; select.value = valToFill; break; }
           }
           if (!exists) {
             var newOpt = document.createElement('option');
-            newOpt.value = text;
-            newOpt.textContent = text;
+            newOpt.value = valToFill;
+            newOpt.textContent = valToFill;
             select.insertBefore(newOpt, select.lastChild);
-            select.value = text;
+            select.value = valToFill;
           }
         }
-        input.value = text;
+        input.value = valToFill;
         
         var ev = new Event('change', { bubbles: true });
         input.dispatchEvent(ev);
-        toast('✅ 已填入: ' + text, 'ok');
+        toast('✅ 已填入: ' + valToFill, 'ok');
       }
       menu.parentNode.removeChild(menu);
     };
