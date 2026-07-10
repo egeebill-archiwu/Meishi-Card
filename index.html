@@ -508,10 +508,11 @@
           <div class="form-group" style="margin-top:var(--sp-md);margin-bottom:var(--sp-md);">
             <label class="form-label">指定 AI 模型 (Gemini Model)</label>
             <select class="form-input" id="geminiModel" onchange="saveGeminiModel()" style="background:var(--white);border:1px solid var(--border);border-radius:var(--r-md);height:38px;padding:0 var(--sp-sm);width:100%;font-size:13px;">
-              <option value="gemini-1.5-flash">Gemini 1.5 Flash (推薦：速度最快、輕量)</option>
-              <option value="gemini-1.5-pro">Gemini 1.5 Pro (進階：辨識力強、速度一般)</option>
-              <option value="gemini-2.0-flash">Gemini 2.0 Flash (最新主流：速度快、辨識優)</option>
-              <option value="gemini-2.0-flash-thinking-exp">Gemini 2.0 Thinking (思考模型：超強邏輯)</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (推薦：最新極速型)</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro (推薦：最新高階型)</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash (主流型)</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash (舊版輕量型)</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro (舊版進階型)</option>
             </select>
           </div>
 
@@ -602,7 +603,7 @@ var S = {
   query: '',
   ind: 'all',
   geminiKey: '',
-  geminiModel: 'gemini-1.5-flash',
+  geminiModel: 'gemini-2.5-flash',
   editId: null,
 };
 
@@ -756,7 +757,7 @@ async function aiSearch(q) {
       return '['+i+'] '+[c.name,c.company,c.title,c.industry,c.region,'底色:'+(c.bgColor||'?'),'備註:'+(c.note||'')].join('|');
     }).join('\n');
     var prompt = '你是名片搜尋助理。根據查詢從以下名片找出最符合的索引，只回傳JSON陣列如[0,2]，無則[]，不加說明。\n查詢：「'+q+'」\n名片：\n'+summary;
-    var resp = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key='+S.geminiKey, {
+    var resp = await fetch('https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.1,maxOutputTokens:128} })
@@ -1662,7 +1663,7 @@ async function processOcr(compUrl, side) {
     var prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下欄位，找不到的留空字串：\n{"name":"姓名","company":"公司名稱","title":"職稱","phone":"電話","email":"電子郵件","address":"地址"}\n【重要 OCR 注意事項】：請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址（包含縣市、區、路、街、巷、號、樓等）」、「Email（包含@的字串）」以及「電話（包含括號市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識填入 address、email 與 phone 欄位！若有多重公司/身分則以 " / " 分隔。只輸出JSON，不要其他贅字。';
 
     var resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=' + S.geminiKey,
+      'https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1956,7 +1957,7 @@ async function loadSettings() {
   var key = await metaGet('geminiKey');
   if (key) { S.geminiKey = key; document.getElementById('geminiKey').value = key; }
   
-  var model = await metaGet('geminiModel') || 'gemini-1.5-flash';
+  var model = await metaGet('geminiModel') || 'gemini-2.5-flash';
   S.geminiModel = model;
   document.getElementById('geminiModel').value = model;
   
