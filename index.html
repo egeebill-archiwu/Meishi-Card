@@ -1006,7 +1006,7 @@ function onAddPage() {
   if (!S.editId) {
     document.getElementById('addPageTitle').textContent = '新增名片';
     document.getElementById('addForm').reset();
-    clearAllFormChips();
+    clearAllFormSelects();
     
     var prev = document.getElementById('scanPreview'); prev.style.display='none'; prev.src='';
     var rc = document.getElementById('rotateControl'); if (rc) rc.style.display='none';
@@ -1306,7 +1306,7 @@ function writeParsedDataToForm(parsed) {
         filled++;
       }
       var nextEl = el.nextElementSibling;
-      if (nextEl && nextEl.classList.contains('form-chips-wrap')) {
+      if (nextEl && nextEl.classList.contains('dynamic-select')) {
         nextEl.parentNode.removeChild(nextEl);
       }
     } else {
@@ -1316,7 +1316,7 @@ function writeParsedDataToForm(parsed) {
         el.value = currentVal;
         filled++;
       }
-      renderCandidateChips(el, candidates);
+      renderCandidateSelect(el, candidates);
     }
     
     // 💡 邏輯連動：當地址 (address) 欄位填入時，自動擷取其中的台灣縣市，同步選擇「區域」下拉選單
@@ -1714,7 +1714,7 @@ async function processOcr(compUrl, side) {
     var mime = 'image/jpeg';
 
     // 支持多公司與多重身分智慧提取，並放寬公司/組織定義、要求姓名去空格
-    var prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下欄位，找不到的留空字串：\n{"name":"姓名","company":"公司或組織名稱（包含學會、協會、公會、機關、學校、行號等）","title":"職稱","phone":"電話","email":"電子郵件","address":"地址"}\n【重要 OCR 注意事項】：請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址（包含縣市、區、路、街、巷、號、樓等）」、「Email（包含@的字串）」以及「電話（包含括號市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識填入 address、email 與 phone 欄位！若有多重公司/身分則以 " / " 分隔。\n【重要格式要求】：姓名（name）欄位請務必「去除字元之間的空格」（例如將「劉 炳 界」或「王  小  明」轉為無空格的「劉炳界」、「王小明」），以利程式去重。只輸出JSON，不要其他贅字。';
+    var prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下欄位，找不到的留空字串：\n{"name":"姓名","company":"公司或組織名稱（包含學會、協會、公會、機關、學校、行號等）","title":"職稱","phone":"電話","email":"電子郵件","address":"地址"}\n【重要 OCR 注意事項】：請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址（包含縣市、區、路、街、巷、號、樓等）」、「Email（包含@的字串）」以及「電話（包含括號市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識填入 address、email 與 phone 欄位！若有多重公司/身分則以 " / " 分隔。\n【重要格式要求】：1. 姓名（name）欄位請務必「去除字元之間的空格」（例如將「劉 炳 界」轉為無空格的「劉炳界」）；2. 電子郵件（email）欄位請務必「去除任何空格或字元斷開」（例如將「hanhua0000@yahoo. com. tw」轉為無空格的「hanhua0000@yahoo.com.tw」），以利程式去重。只輸出JSON，不要其他贅字。';
 
     var resp = await fetch(
       'https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey,
@@ -1883,7 +1883,7 @@ async function submitCard(e) {
       toast('名片已新增 🎉', 'ok');
     }
     S.editId = null;
-    clearAllFormChips();
+    clearAllFormSelects();
     goTo('home');
   } catch(err) {
     toast('儲存失敗：'+err.message, 'err');
@@ -2085,133 +2085,93 @@ function toggleEye(id) {
 }
 
 // ────────────────────────────────────────────
-// AI 候選值晶片標籤輔助函數 (Candidate Chips)
+// AI 候選值下拉選單輔助函數 (Dynamic Select Dropdown)
 // ────────────────────────────────────────────
-function renderCandidateChips(inputEl, candidates) {
-  var nextEl = inputEl.nextElementSibling;
-  if (nextEl && nextEl.classList.contains('form-chips-wrap')) {
-    nextEl.parentNode.removeChild(nextEl);
+function renderCandidateSelect(inputEl, candidates) {
+  var existingSelect = inputEl.parentNode.querySelector('.dynamic-select');
+  if (existingSelect) {
+    existingSelect.parentNode.removeChild(existingSelect);
   }
+  
+  // 恢復 input 顯示以利資料同步與防手動修改遺失
+  inputEl.style.display = '';
   
   if (!candidates || candidates.length <= 1) return;
   
-  var wrap = document.createElement('div');
-  wrap.className = 'form-chips-wrap';
-  wrap.style.display = 'flex';
-  wrap.style.flexWrap = 'wrap';
-  wrap.style.gap = '6px';
-  wrap.style.marginTop = '6px';
-  wrap.style.marginBottom = '2px';
+  // 隱藏原始文字框
+  inputEl.style.display = 'none';
   
+  // 建立下拉選單
+  var select = document.createElement('select');
+  select.className = 'form-select dynamic-select';
+  
+  // 套用 iOS 質感樣式，右側預留三角形指示圖標
+  Object.assign(select.style, {
+    width: '100%',
+    height: '38px',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--r-md)',
+    background: 'var(--white) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 16 16\' fill=\'%23888\'%3E%3Cpath fill-rule=\'evenodd\' d=\'M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z\'/%3E%3C/svg%3E") no-repeat right 12px center',
+    backgroundSize: '12px 12px',
+    fontSize: '13px',
+    padding: '0 32px 0 var(--sp-sm)',
+    color: 'var(--text-main)',
+    outline: 'none',
+    webkitAppearance: 'none',
+    appearance: 'none',
+    marginTop: '2px'
+  });
+  
+  // 渲染選項
   candidates.forEach(function(cand) {
-    var chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'form-chip';
-    chip.textContent = cand;
-    
-    Object.assign(chip.style, {
-      background: 'var(--gray-100)',
-      border: '1px solid var(--border)',
-      borderRadius: 'var(--r-full)',
-      padding: '4px 10px',
-      fontSize: '11px',
-      color: 'var(--text-sub)',
-      cursor: 'pointer',
-      transition: 'all 0.15s ease',
-      outline: 'none'
-    });
-    
-    if (inputEl.value.trim() === cand) {
-      highlightChip(chip);
-    }
-    
-    chip.onclick = function() {
-      inputEl.value = cand;
+    var opt = document.createElement('option');
+    opt.value = cand;
+    opt.textContent = cand;
+    select.appendChild(opt);
+  });
+  
+  // 手動輸入選項
+  var customOpt = document.createElement('option');
+  customOpt.value = '__custom__';
+  customOpt.textContent = '✍️ 手動輸入 / 修改欄位值...';
+  select.appendChild(customOpt);
+  
+  // 設定選取值
+  var currentVal = inputEl.value.trim();
+  if (candidates.indexOf(currentVal) !== -1) {
+    select.value = currentVal;
+  } else if (currentVal) {
+    inputEl.style.display = '';
+    select.style.display = 'none';
+  } else {
+    select.value = candidates[0];
+    inputEl.value = candidates[0];
+  }
+  
+  select.onchange = function() {
+    if (this.value === '__custom__') {
+      inputEl.style.display = '';
+      select.style.display = 'none';
+      inputEl.focus();
+    } else {
+      inputEl.value = this.value;
       var ev = new Event('change', { bubbles: true });
       inputEl.dispatchEvent(ev);
-      
-      var siblingChips = wrap.querySelectorAll('.form-chip');
-      siblingChips.forEach(c => resetChipStyle(c));
-      highlightChip(chip);
-    };
-    
-    wrap.appendChild(chip);
-  });
-  
-  // 「全部合併保留」晶片
-  var mergeChip = document.createElement('button');
-  mergeChip.type = 'button';
-  mergeChip.className = 'form-chip form-chip--merge';
-  mergeChip.textContent = '➕ 全部保留 (合併)';
-  Object.assign(mergeChip.style, {
-    background: '#FFF8E1',
-    border: '1px solid #FFE082',
-    borderRadius: 'var(--r-full)',
-    padding: '4px 10px',
-    fontSize: '11px',
-    color: '#F57F17',
-    cursor: 'pointer',
-    transition: 'all 0.15s ease',
-    outline: 'none'
-  });
-  
-  var allJoined = candidates.join(' / ');
-  if (inputEl.value.trim() === allJoined) {
-    highlightMergeChip(mergeChip);
-  }
-  
-  mergeChip.onclick = function() {
-    inputEl.value = allJoined;
-    var ev = new Event('change', { bubbles: true });
-    inputEl.dispatchEvent(ev);
-    
-    var siblingChips = wrap.querySelectorAll('.form-chip');
-    siblingChips.forEach(c => resetChipStyle(c));
-    highlightMergeChip(mergeChip);
+    }
   };
   
-  wrap.appendChild(mergeChip);
-  inputEl.parentNode.insertBefore(wrap, inputEl.nextSibling);
+  inputEl.parentNode.insertBefore(select, inputEl.nextSibling);
 }
 
-function highlightChip(el) {
-  el.style.background = 'var(--black)';
-  el.style.borderColor = 'var(--black)';
-  el.style.color = 'var(--white)';
-  el.style.fontWeight = 'bold';
-}
-
-function highlightMergeChip(el) {
-  el.style.background = '#FFD54F';
-  el.style.borderColor = '#FFC107';
-  el.style.color = '#5D4037';
-  el.style.fontWeight = 'bold';
-}
-
-function resetChipStyle(el) {
-  if (el.classList.contains('form-chip--merge')) {
-    Object.assign(el.style, {
-      background: '#FFF8E1',
-      borderColor: '#FFE082',
-      color: '#F57F17',
-      fontWeight: 'normal'
-    });
-  } else {
-    Object.assign(el.style, {
-      background: 'var(--gray-100)',
-      borderColor: 'var(--border)',
-      color: 'var(--text-sub)',
-      fontWeight: 'normal'
-    });
-  }
-}
-
-function clearAllFormChips() {
-  var wraps = document.querySelectorAll('.form-chips-wrap');
-  wraps.forEach(function(w) {
-    w.parentNode.removeChild(w);
+function clearAllFormSelects() {
+  var selects = document.querySelectorAll('.dynamic-select');
+  selects.forEach(function(s) {
+    var input = s.parentNode.querySelector('input');
+    if (input) input.style.display = '';
+    s.parentNode.removeChild(s);
   });
 }
+
 
 
 // ────────────────────────────────────────────
