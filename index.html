@@ -504,7 +504,10 @@
               <button class="api-eye" type="button" onclick="toggleEye('geminiKey')">👁️</button>
             </div>
           </div>
-          <button class="btn btn--primary btn--sm" onclick="saveGeminiKey()">儲存 API Key</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn--primary btn--sm" style="flex:1" onclick="saveGeminiKey()">儲存 API Key</button>
+            <button class="btn btn--outline btn--sm" style="flex:1" type="button" onclick="testApiKey()">測試連線</button>
+          </div>
           <p style="font-size:12px;color:var(--text-hint);margin-top:10px;line-height:1.7;">
             ▸ 前往 <strong>aistudio.google.com</strong> 即可免費取得<br>
             ▸ Key 只儲存在本機，不會上傳至任何伺服器<br>
@@ -1968,6 +1971,29 @@ function saveGeminiKey() {
     updateApiStatus();
   });
 }
+
+async function testApiKey() {
+  var val = document.getElementById('geminiKey').value.trim();
+  if (!val) { toast('請先輸入 API Key', 'err'); return; }
+  toast('🔍 正在測試 API 金鑰連線...', 'info');
+  try {
+    var resp = await fetch('https://generativelanguage.googleapis.com/v1/models?key=' + val);
+    if (!resp.ok) {
+      var errJson = await resp.json().catch(function(){ return {}; });
+      var errMsg = (errJson.error && errJson.error.message) || 'HTTP ' + resp.status;
+      alert('❌ 連線失敗！Google 回傳錯誤：\n\n' + errMsg);
+      return;
+    }
+    var data = await resp.json();
+    var models = data.models || [];
+    var modelNames = models.map(function(m){ return m.name.replace('models/', ''); });
+    var list = modelNames.filter(function(n){ return n.includes('gemini'); });
+    alert('✅ 連線成功！\n您的 API Key 可以正常使用。\n\n可用 Gemini 模型：\n' + list.slice(0, 5).join('\n') + (list.length > 5 ? '\n...' : ''));
+  } catch(err) {
+    alert('❌ 連線失敗！請確認網路是否正常，或金鑰是否正確。\n錯誤詳情：' + err.message);
+  }
+}
+
 
 
 function toggleEye(id) {
