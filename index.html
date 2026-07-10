@@ -318,6 +318,14 @@
 
       <div style="padding:var(--sp-md)">
 
+        <!-- 👔 選擇名片身分組 (詳細頁唯讀主下拉選單) -->
+        <div id="detailProfileSelectorContainer" style="display:none; background:var(--gray-50); border:1px solid var(--border); padding:12px; border-radius:var(--r-md); margin-bottom:15px;">
+          <label class="form-label" style="font-weight:bold; color:var(--text-main); display:flex; align-items:center; gap:4px; margin-bottom:6px; font-size:12px;">
+            👔 切換檢視名片身分：
+          </label>
+          <select class="form-select" id="dProfileSelector" style="width:100%; height:38px; border:1px solid var(--border); border-radius:var(--r-md); background-color:var(--white); font-size:13px; outline:none; padding:0 10px;"></select>
+        </div>
+
         <!-- 聯絡資訊 -->
         <div class="info-section">
           <div class="info-section__title">聯絡資訊</div>
@@ -933,33 +941,83 @@ async function openDetail(id) {
   var c = await dbGet(id);
   if (!c) return;
   S.curCard = c;
+  
   var ind = c.industry ? (IND_MAP[c.industry]||c.industry) : '—';
   document.getElementById('detailName').textContent = c.name||'（無姓名）';
-  
-  // 智慧渲染多身分下拉選單
-  var companyVal = c.company || '';
-  var titleVal   = c.title || '';
-  var subHTML = '';
-  if (companyVal.includes('/') || titleVal.includes('/')) {
-    subHTML = renderDetailField(companyVal, 'company') + ' · ' + renderDetailField(titleVal, 'title');
-  } else {
-    subHTML = [esc(companyVal), esc(titleVal)].filter(Boolean).join(' · ') || '—';
-  }
-  document.getElementById('detailSub').innerHTML = subHTML;
-  document.getElementById('dPhone').innerHTML    = renderDetailField(c.phone, 'phone');
-  document.getElementById('dEmail').innerHTML    = renderDetailField(c.email, 'email', true);
-  document.getElementById('dAddress').innerHTML  = renderDetailField(c.address, 'address');
   document.getElementById('dIndustry').textContent = ind;
   document.getElementById('dRegion').textContent   = c.region||'—';
   document.getElementById('dBirthday').textContent = c.birthday ? new Date(c.birthday).toLocaleDateString('zh-TW') : '—';
   document.getElementById('dBgColor').textContent  = c.bgColor||'—';
   document.getElementById('dCreated').textContent  = c.createdAt ? new Date(c.createdAt).toLocaleDateString('zh-TW') : '—';
+  
   var nb = document.getElementById('noteBox');
   if (c.note) {
     nb.style.display='block';
     document.getElementById('dNote').textContent = c.note;
   } else {
     nb.style.display='none';
+  }
+
+  // 1. 定義單一身分切換的渲染函數
+  function applyProfileDataToDetail(p) {
+    var companyVal = p.company || '';
+    var titleVal   = p.title || '';
+    
+    var subHTML = '';
+    if (companyVal.includes('/') || titleVal.includes('/')) {
+      subHTML = renderDetailField(companyVal, 'company') + ' · ' + renderDetailField(titleVal, 'title');
+    } else {
+      subHTML = [esc(companyVal), esc(titleVal)].filter(Boolean).join(' · ') || '—';
+    }
+    
+    document.getElementById('detailSub').innerHTML = subHTML;
+    document.getElementById('dPhone').innerHTML    = renderDetailField(p.phone, 'phone');
+    document.getElementById('dEmail').innerHTML    = renderDetailField(p.email, 'email', true);
+    document.getElementById('dAddress').innerHTML  = renderDetailField(p.address, 'address');
+  }
+
+  // 2. 智慧處理多身分切換下拉選單 (唯讀檢視模式)
+  var detailSelContainer = document.getElementById('detailProfileSelectorContainer');
+  var detailSelector = document.getElementById('dProfileSelector');
+  
+  var profiles = c.profiles || [];
+  
+  if (profiles.length === 0) {
+    profiles.push({
+      company: c.company || '',
+      title: c.title || '',
+      phone: c.phone || '',
+      email: c.email || '',
+      address: c.address || ''
+    });
+  }
+
+  if (profiles.length > 1 && detailSelContainer && detailSelector) {
+    detailSelector.innerHTML = '';
+    profiles.forEach(function(p, idx) {
+      var opt = document.createElement('option');
+      opt.value = idx;
+      opt.textContent = (idx + 1) + '. ' + (p.company || '無公司') + ' (' + (p.title || '無職稱') + ')';
+      detailSelector.appendChild(opt);
+    });
+    detailSelContainer.style.display = 'block';
+    
+    var activeIdx = 0;
+    for (var i = 0; i < profiles.length; i++) {
+      if (profiles[i].company === c.company && profiles[i].title === c.title) {
+        activeIdx = i;
+        break;
+      }
+    }
+    detailSelector.value = activeIdx;
+    applyProfileDataToDetail(profiles[activeIdx]);
+    
+    detailSelector.onchange = function() {
+      applyProfileDataToDetail(profiles[this.value]);
+    };
+  } else {
+    if (detailSelContainer) detailSelContainer.style.display = 'none';
+    applyProfileDataToDetail(profiles[0]);
   }
   
   // 支持 3D 卡片正反面翻轉效果展示
@@ -1008,6 +1066,41 @@ function editCard() {
   document.getElementById('fBgColor').value  = c.bgColor||'';
   document.getElementById('fBgHex').value    = c.bgColorHex||'';
   
+  // 👔 載入累積的多重身分組
+  S.currentProfiles = c.profiles || [];
+  S.currentRawText = [];
+  clearAllFormSelects();
+  resetProfileSelectorAndPills();
+
+  if (S.currentProfiles.length > 1) {
+    var masterContainer = document.getElementById('profileSelectorContainer');
+    var masterSelector = document.getElementById('fProfileSelector');
+    if (masterSelector && masterContainer) {
+      masterSelector.innerHTML = '';
+      S.currentProfiles.forEach(function(p, idx) {
+        var opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = (idx + 1) + '. ' + (p.company || '無公司') + ' (' + (p.title || '無職稱') + ')';
+        masterSelector.appendChild(opt);
+      });
+      masterContainer.style.display = 'block';
+      
+      // 預設選取目前儲存的公司與職稱對應的身分
+      var activeIdx = 0;
+      for (var i = 0; i < S.currentProfiles.length; i++) {
+        if (S.currentProfiles[i].company === c.company && S.currentProfiles[i].title === c.title) {
+          activeIdx = i;
+          break;
+        }
+      }
+      masterSelector.value = activeIdx;
+      
+      masterSelector.onchange = function() {
+        applyProfileData(S.currentProfiles[this.value]);
+      };
+    }
+  }
+  
   // 載入正面預覽
   var prev = document.getElementById('scanPreview');
   var rc = document.getElementById('rotateControl');
@@ -1052,6 +1145,7 @@ function onAddPage() {
     S.currentProfiles = [];
     S.currentRawText = [];
     clearAllFormSelects();
+    resetProfileSelectorAndPills();
     
     var prev = document.getElementById('scanPreview'); prev.style.display='none'; prev.src='';
     var rc = document.getElementById('rotateControl'); if (rc) rc.style.display='none';
@@ -2029,6 +2123,9 @@ async function submitCard(e) {
   fd.forEach(function(v,k){ card[k] = v.trim ? v.trim() : v; });
   if (!card.name) { toast('請輸入姓名', 'err'); return; }
 
+  // 儲存累積的多重身分組 (Profiles)
+  card.profiles = S.currentProfiles || [];
+
   // 儲存正反雙面名片圖
   var prev = document.getElementById('scanPreview');
   if (prev.src && prev.style.display !== 'none') card.imageData = prev.src;
@@ -2053,6 +2150,7 @@ async function submitCard(e) {
     }
     S.editId = null;
     clearAllFormSelects();
+    resetProfileSelectorAndPills();
     goTo('home');
   } catch(err) {
     toast('儲存失敗：'+err.message, 'err');
@@ -2339,7 +2437,9 @@ function clearAllFormSelects() {
     if (input) input.style.display = '';
     s.parentNode.removeChild(s);
   });
-  
+}
+
+function resetProfileSelectorAndPills() {
   var masterSelContainer = document.getElementById('profileSelectorContainer');
   if (masterSelContainer) {
     masterSelContainer.style.display = 'none';
