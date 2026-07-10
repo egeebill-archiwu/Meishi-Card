@@ -1411,12 +1411,12 @@ function savePhotoAndGo() {
   
   // 2. 將 AI 提取的資訊寫入表單！
   if (autoParsedResult) {
-    writeParsedDataToForm(autoParsedResult);
+    writeParsedDataToForm(autoParsedResult, activeSide);
   }
   toast('🎉 名片自動掃描存檔成功！', 'ok');
 }
 
-function writeParsedDataToForm(parsed) {
+function writeParsedDataToForm(parsed, side) {
   var name = parsed.name ? String(parsed.name).trim() : '';
   if (name) {
     var nameEl = document.getElementById('fName');
@@ -1476,9 +1476,16 @@ function writeParsedDataToForm(parsed) {
   });
   incomingProfiles = splitProfiles;
 
-  // 💡 核心優化：跨正/反面身分群組「疊加合併」邏輯
+  // 💡 側邊覆寫邏輯：重拍同一個面時，清除該面先前的 Profiles 進行覆寫，保留另一面的資料
   if (!S.currentProfiles) S.currentProfiles = [];
-  
+  if (side) {
+    incomingProfiles.forEach(function(p) { p.side = side; });
+    S.currentProfiles = S.currentProfiles.filter(function(p) {
+      return p.side !== side;
+    });
+  }
+
+  // 💡 核心優化：跨正/反面身分群組「疊加合併」邏輯
   incomingProfiles.forEach(function(ip) {
     var exists = false;
     for (var i = 0; i < S.currentProfiles.length; i++) {
@@ -1507,6 +1514,7 @@ function writeParsedDataToForm(parsed) {
         if (ip.address && ep.address.indexOf(ip.address) === -1) {
           ep.address = ip.address;
         }
+        if (ip.side) ep.side = ip.side;
         break;
       }
     }
@@ -1547,17 +1555,27 @@ function writeParsedDataToForm(parsed) {
 
   // 4. 疊加 Google Lens 原始文字氣泡段落
   if (!S.currentRawText) S.currentRawText = [];
+  if (side) {
+    S.currentRawText = S.currentRawText.filter(function(rt) {
+      return rt.side !== side;
+    });
+  }
+  
   if (parsed.raw_text && Array.isArray(parsed.raw_text)) {
     parsed.raw_text.forEach(function(t) {
       var clean = String(t).trim();
-      if (clean && S.currentRawText.indexOf(clean) === -1) {
-        S.currentRawText.push(clean);
+      if (clean) {
+        var exists = S.currentRawText.some(function(rt) { return rt.text === clean; });
+        if (!exists) {
+          S.currentRawText.push({ text: clean, side: side || 'front' });
+        }
       }
     });
   }
   
-  if (S.currentRawText.length > 0) {
-    renderRawTextPills(S.currentRawText);
+  var rawTextStrings = S.currentRawText.map(function(rt) { return rt.text; });
+  if (rawTextStrings.length > 0) {
+    renderRawTextPills(rawTextStrings);
   }
   return S.currentProfiles.length;
 }
@@ -2005,9 +2023,17 @@ async function processOcr(compUrl, side) {
       '      "address": "此身分的地址"\\n' +
       '    }\\n' +
       '  ],\\n' +
-      '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"]\\n' +
+      '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"],\\n' +
+      '  "corners": {\\n' +
+      '    "tl": [左上角 x, y],\\n' +
+      '    "tr": [右上角 x, y],\\n' +
+      '    "br": [右下角 x, y],\\n' +
+      '    "bl": [左下角 x, y]\\n' +
+      '  }\\n' +
       '}\\n' +
-      '【重要 OCR 注意事項】：請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！';
+      '【重要 OCR 注意事項】：\\n' +
+      '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！\\n' +
+      '2. 【邊界四角定位】：請仔細偵測圖片中「白底名片本身」的四個物理邊角，並以坐標百分比（0~1000 之間的整數，圖片左上角為 [0,0]，右下角為 [1000,1000]）輸出在 corners 屬性中，用以進行 3D 視角拉平去背。請務必精準找出卡片的真正邊界，排除周邊的桌面背景！';
 
     var resp = await fetch(
       'https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey,
@@ -2181,6 +2207,8 @@ async function submitCard(e) {
       toast('名片已新增 🎉', 'ok');
     }
     S.editId = null;
+    S.currentProfiles = [];
+    S.currentRawText = [];
     clearAllFormSelects();
     resetProfileSelectorAndPills();
     goTo('home');
