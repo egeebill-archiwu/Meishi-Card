@@ -1208,7 +1208,7 @@ function compressImage(dataUrl, maxSize, quality) {
 
 // ── 正則備援：從原始文字抓各欄位 ─────────────────
 function extractFromText(text) {
-  var result = {};
+  var result = { _isFallback: true };
   var emailM = text.match(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i);
   if (emailM) result.email = emailM[0];
   var phoneM = text.match(/(?:\+?886[-\s]?|0)[2-9][\d\s()-]{6,12}/);
@@ -1252,6 +1252,32 @@ function extractFromText(text) {
       }
     } catch(e) {
       console.warn('Regex raw_text extraction failed:', e);
+    }
+  }
+
+  // 嘗試從文字中以 Regex 提取 profiles 陣列，作為 JSON 解析失敗時的極限備援
+  var profilesMatch = text.match(/"profiles"\s*:\s*\[([\s\S]*?)\]/);
+  if (profilesMatch && profilesMatch[1]) {
+    try {
+      var profilesList = [];
+      var objRegex = /\{([\s\S]*?)\}/g;
+      var objMatch;
+      while ((objMatch = objRegex.exec(profilesMatch[1])) !== null) {
+        var pObj = {};
+        ['company','title','phone','email','address'].forEach(function(f) {
+          var re = new RegExp('"' + f + '"\\s*:\\s*"([^"]*)"', 'i');
+          var m = objMatch[1].match(re);
+          if (m && m[1]) pObj[f] = m[1];
+        });
+        if (Object.keys(pObj).length > 0) {
+          profilesList.push(pObj);
+        }
+      }
+      if (profilesList.length > 0) {
+        result.profiles = profilesList;
+      }
+    } catch(e) {
+      console.warn('Regex profiles extraction failed:', e);
     }
   }
 
@@ -1518,7 +1544,7 @@ function writeParsedDataToForm(parsed, side) {
     // 🔍 診斷通知：顯示載入之屬性鍵
     var keys = Object.keys(parsed).filter(function(k) { return parsed[k] !== undefined && parsed[k] !== null; });
     console.log('[writeParsedDataToForm keys]:', keys);
-    toast('🔍 AI 載入屬性: ' + keys.join(', '), 'info');
+    toast('🔍 AI 載入屬性 [' + (parsed._isFallback ? '備援' : 'JSON') + ']: ' + keys.filter(function(k){return k !== '_isFallback';}).join(', '), 'info');
 
   // 1. 解析出結構化的身分群組 (Profiles)
   var incomingProfiles = [];
@@ -2178,8 +2204,10 @@ async function processOcr(compUrl, side) {
       '2. 【邊界定位精準度警告與要求】：\\n' +
       '   - 必須精準定位名片白色紙張本身的四個物理角落（以 0~1000 百分比整數表示，左上角為 [0,0]，右下角為 [1000,1000]），排除任何周圍的桌面背景！上面的 [0, 0] 等為範本，請替換為實際偵測到的座標。\\n' +
       '   - 【防止頂部被切除】：名片最上方通常有一塊白色的留白邊緣（即第一行文字之上的白色紙張邊界），這依然屬於名片範圍！請務必把 tl 和 tr 定位在白色紙張的「最頂端物理角落」，絕對不能切掉名片頂部的公司商標、Logo 或文字（如「漢華國際...」）！\\n' +
-      '   - 【防止底部殘留桌面】：名片最下方有褐色的木紋桌面，請看清白色紙張的底部邊界，將 bl 和 br 精確定位在名片底部（包含底部的藍色條紋等裝飾）的「最底端物理角落」，不要包含任何桌子背景！\\n' +
-      '   - 嚴禁直接返回整張圖片的四個邊角（如 [0,0], [1000,0] 等）。';
+      '   - 【防止底部殘留桌面】：名片最下方有褐色的木紋桌面，請看清白色紙張的底部邊界，將 bl 和 br 精確定位在名片底部（包含底部的藍色條紋等裝飾）的「最底端物理角落」，不要包含 any 桌面背景！\\n' +
+      '   - 嚴禁直接返回整張圖片的四個邊角（如 [0,0], [1000,0] 等）。\\n' +
+      '3. 【JSON 完整度極重要警示】：\\n' +
+      '   - 必須完整且無遺漏地返回 JSON 結構中的所有欄位！特別是 "profiles" 陣列（包含各個身分的詳細資訊物件）以及 "raw_text" 陣列（必須將所有名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、職稱、地址等以字串形式完整列出）。絕對不能忽略或省略這兩個欄位，否則系統會出錯！';
 
     var resp = await fetch(
       'https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey,
