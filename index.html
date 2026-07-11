@@ -1219,6 +1219,24 @@ function extractFromText(text) {
     if (m && m[1] && !result[f]) result[f] = m[1];
   });
 
+  // 嘗試從文字中以 Regex 提取 raw_text 陣列，作為 JSON 解析失敗時的極限備援
+  var rawTextMatch = text.match(/"raw_text"\s*:\s*\[([\s\S]*?)\]/);
+  if (rawTextMatch && rawTextMatch[1]) {
+    try {
+      var items = [];
+      var strRegex = /"([^"]*)"/g;
+      var match;
+      while ((match = strRegex.exec(rawTextMatch[1])) !== null) {
+        items.push(match[1]);
+      }
+      if (items.length > 0) {
+        result.raw_text = items;
+      }
+    } catch(e) {
+      console.warn('Regex raw_text extraction failed:', e);
+    }
+  }
+
   // 嘗試從文字中以 Regex 正則提取 corners 坐標，作為 JSON 解析失敗時的極限備援
   var cornersMatch = text.match(/"corners"\s*:\s*\{[\s\S]*?\}/);
   if (cornersMatch) {
@@ -2082,10 +2100,10 @@ async function processOcr(compUrl, side) {
     var prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\\n' +
       '{\\n' +
       '  "corners": {\\n' +
-      '    "tl": [左上角x座標0至1000整數, 左上角y座標0至1000整數],\\n' +
-      '    "tr": [右上角x座標0至1000整數, 右上角y座標0至1000整數],\\n' +
-      '    "br": [右下角x座標0至1000整數, 右下角y座標0至1000整數],\\n' +
-      '    "bl": [左下角x座標0至1000整數, 左下角y座標0至1000整數]\\n' +
+      '    "tl": [0, 0],\\n' +
+      '    "tr": [1000, 0],\\n' +
+      '    "br": [1000, 1000],\\n' +
+      '    "bl": [0, 1000]\\n' +
       '  },\\n' +
       '  "name": "姓名（務必去除字元間的空格，如「劉炳界」）",\\n' +
       '  "company": "所有公司或組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\\n' +
@@ -2107,7 +2125,7 @@ async function processOcr(compUrl, side) {
       '【重要 OCR 注意事項】：\\n' +
       '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！\\n' +
       '2. 【邊界定位精準度警告與要求】：\\n' +
-      '   - 必須精準定位名片白色紙張本身的四個物理角落（以 0~1000 百分比整數表示，左上角為 [0,0]，右下角為 [1000,1000]），排除任何周圍的桌面背景！上面的 [120, 250] 等為範例，請替換為實際座標。\\n' +
+      '   - 必須精準定位名片白色紙張本身的四個物理角落（以 0~1000 百分比整數表示，左上角為 [0,0]，右下角為 [1000,1000]），排除任何周圍的桌面背景！上面的 [0, 0] 等為範本，請替換為實際偵測到的座標。\\n' +
       '   - 【防止頂部被切除】：名片最上方通常有一塊白色的留白邊緣（即第一行文字之上的白色紙張邊界），這依然屬於名片範圍！請務必把 tl 和 tr 定位在白色紙張的「最頂端物理角落」，絕對不能切掉名片頂部的公司商標、Logo 或文字（如「漢華國際...」）！\\n' +
       '   - 【防止底部殘留桌面】：名片最下方有褐色的木紋桌面，請看清白色紙張的底部邊界，將 bl 和 br 精確定位在名片底部（包含底部的藍色條紋等裝飾）的「最底端物理角落」，不要包含任何桌子背景！\\n' +
       '   - 嚴禁直接返回整張圖片的四個邊角（如 [0,0], [1000,0] 等）。';
@@ -2233,6 +2251,14 @@ async function processOcr(compUrl, side) {
           var pTR = getPoint(c.tr || c.TR);
           var pBR = getPoint(c.br || c.BR);
           var pBL = getPoint(c.bl || c.BL);
+          
+          // 💡 智慧四角微調（Outward Margin Padding）：
+          // 由於 AI 定位角落有時偏緊而切到邊線，自動將四個座標向外延伸 1.8% 以求完美安全餘裕
+          var pad = 0.018;
+          pTL.x = Math.max(0, pTL.x - pad); pTL.y = Math.max(0, pTL.y - pad);
+          pTR.x = Math.min(1, pTR.x + pad); pTR.y = Math.max(0, pTR.y - pad);
+          pBR.x = Math.min(1, pBR.x + pad); pBR.y = Math.min(1, pBR.y + pad);
+          pBL.x = Math.max(0, pBL.x - pad); pBL.y = Math.min(1, pBL.y + pad);
           
           var srcPoints = [
             { x: pTL.x * imgW, y: pTL.y * imgH },
