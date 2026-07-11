@@ -1213,7 +1213,25 @@ function extractFromText(text) {
   if (emailM) result.email = emailM[0];
   var phoneM = text.match(/(?:\+?886[-\s]?|0)[2-9][\d\s()-]{6,12}/);
   if (phoneM) result.phone = phoneM[0].trim();
+  
+  // 👔 屬性匹配：支援字串及陣列格式，確保 regex 備援也能拿到 company, title 等欄位
   ['name','company','title','phone','email','address'].forEach(function(f) {
+    // 優先匹配陣列格式，如 "company": ["A", "B"]
+    var arrRe = new RegExp('"' + f + '"\\s*:\\s*\\[([\\s\\S]*?)\\]', 'i');
+    var arrM = text.match(arrRe);
+    if (arrM && arrM[1]) {
+      var items = [];
+      var strRe = /"([^"]*)"/g;
+      var match;
+      while ((match = strRe.exec(arrM[1])) !== null) {
+        items.push(match[1]);
+      }
+      if (items.length > 0) {
+        result[f] = items.join(' / ');
+        return;
+      }
+    }
+    // 次優先匹配單一字串格式
     var re = new RegExp('"' + f + '"\\s*:\\s*"([^"]*)"', 'i');
     var m = text.match(re);
     if (m && m[1] && !result[f]) result[f] = m[1];
@@ -1492,10 +1510,15 @@ function savePhotoAndGo() {
 function writeParsedDataToForm(parsed, side) {
   try {
     var name = parsed.name ? String(parsed.name).trim() : '';
-  if (name) {
-    var nameEl = document.getElementById('fName');
-    if (nameEl) nameEl.value = name;
-  }
+    if (name) {
+      var nameEl = document.getElementById('fName');
+      if (nameEl) nameEl.value = name;
+    }
+    
+    // 🔍 診斷通知：顯示載入之屬性鍵
+    var keys = Object.keys(parsed).filter(function(k) { return parsed[k] !== undefined && parsed[k] !== null; });
+    console.log('[writeParsedDataToForm keys]:', keys);
+    toast('🔍 AI 載入屬性: ' + keys.join(', '), 'info');
 
   // 1. 解析出結構化的身分群組 (Profiles)
   var incomingProfiles = [];
@@ -2199,7 +2222,12 @@ async function processOcr(compUrl, side) {
 
     var parsed;
     try   { 
-      parsed = JSON.parse(jt);
+      // 💡 容錯 JSON 清理：自動去除註解與結尾逗號，提高 JSON.parse 成功率
+      var cleanedJt = jt
+        .replace(/\/\/.*/g, '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/,\s*([}\]])/g, '$1');
+      parsed = JSON.parse(cleanedJt);
       console.log('[Gemini JSON Parsed successfully]:', parsed);
     }
     catch (ex) {
