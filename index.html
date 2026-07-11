@@ -566,10 +566,10 @@
           <div class="form-group" style="margin-top:var(--sp-md);margin-bottom:var(--sp-md);">
             <label class="form-label">指定 AI 模型 (Gemini Model)</label>
             <select class="form-input" id="geminiModel" onchange="saveGeminiModel()" style="background:var(--white);border:1px solid var(--border);border-radius:var(--r-md);height:38px;padding:0 var(--sp-sm);width:100%;font-size:13px;">
-              <option value="gemini-1.5-flash">Gemini 1.5 Flash (推薦：最穩定生產版)</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash (推薦：主流極速版)</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash (穩定生產版)</option>
               <option value="gemini-2.5-flash">Gemini 2.5 Flash (最新極速型 - 實驗性)</option>
               <option value="gemini-2.5-pro">Gemini 2.5 Pro (最新高階型 - 實驗性)</option>
-              <option value="gemini-2.0-flash">Gemini 2.0 Flash (主流型)</option>
               <option value="gemini-1.5-pro">Gemini 1.5 Pro (舊版進階型)</option>
             </select>
           </div>
@@ -676,7 +676,7 @@ var S = {
   query: '',
   ind: 'all',
   geminiKey: '',
-  geminiModel: 'gemini-1.5-flash',
+  geminiModel: 'gemini-2.0-flash',
   editId: null,
   currentProfiles: [],
   currentRawText: [],
@@ -2608,7 +2608,7 @@ async function loadSettings() {
   var key = await metaGet('geminiKey');
   if (key) { S.geminiKey = key; document.getElementById('geminiKey').value = key; }
   
-  var model = await metaGet('geminiModel') || 'gemini-1.5-flash';
+  var model = await metaGet('geminiModel') || 'gemini-2.0-flash';
   S.geminiModel = model;
   document.getElementById('geminiModel').value = model;
   
