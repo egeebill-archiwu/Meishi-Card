@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shanyuan-v20';
+const CACHE_NAME = 'shanyuan-v21';
 const ASSETS = [
   '/',
   '/index.html',
@@ -24,7 +24,9 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // 💡 網路優先策略：線上時總是優先抓取最新網頁程式碼，斷網時才降級讀取本地快取
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => caches.match('/index.html')))
+    fetch(e.request)
+      .catch(() => caches.match(e.request).then(cached => cached || caches.match('/index.html')))
   );
 });
