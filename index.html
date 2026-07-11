@@ -3079,19 +3079,15 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 初始載入
   goTo('home');
 
-  // Service Worker
+  // ── 徹底註銷並清除舊的 Service Worker 以防快取鎖死 ──
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').then(function(reg) {
-      reg.addEventListener('updatefound', function() {
-        var newWorker = reg.installing;
-        newWorker.addEventListener('statechange', function() {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('[ServiceWorker]: New version installed. Reloading page...');
-            window.location.reload();
-          }
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for (var reg of registrations) {
+        reg.unregister().then(function() {
+          console.log('[ServiceWorker] 註銷成功');
         });
-      });
-    }).catch(function(){});
+      }
+    });
   }
 });
 </script>
