@@ -2241,50 +2241,50 @@ async function processOcr(compUrl, side) {
             maxOutputTokens: 2048,
             responseMimeType: "application/json",
             responseSchema: {
-              type: "object",
+              type: "OBJECT",
               properties: {
                 corners: {
-                  type: "object",
+                  type: "OBJECT",
                   properties: {
-                    tl: { type: "array", items: { type: "integer" } },
-                    tr: { type: "array", items: { type: "integer" } },
-                    br: { type: "array", items: { type: "integer" } },
-                    bl: { type: "array", items: { type: "integer" } }
+                    tl: { type: "ARRAY", items: { type: "INTEGER" } },
+                    tr: { type: "ARRAY", items: { type: "INTEGER" } },
+                    br: { type: "ARRAY", items: { type: "INTEGER" } },
+                    bl: { type: "ARRAY", items: { type: "INTEGER" } }
                   },
                   required: ["tl", "tr", "br", "bl"]
                 },
-                name: { type: "string" },
-                company: { type: "string" },
-                title: { type: "string" },
-                phone: { type: "string" },
-                email: { type: "string" },
-                address: { type: "string" },
+                name: { type: "STRING" },
+                company: { type: "STRING" },
+                title: { type: "STRING" },
+                phone: { type: "STRING" },
+                email: { type: "STRING" },
+                address: { type: "STRING" },
                 profiles: {
-                  type: "array",
+                  type: "ARRAY",
                   items: {
-                    type: "object",
+                    type: "OBJECT",
                     properties: {
-                      company: { type: "string" },
-                      title: { type: "string" },
-                      phone: { type: "string" },
-                      email: { type: "string" },
-                      address: { type: "string" }
+                      company: { type: "STRING" },
+                      title: { type: "STRING" },
+                      phone: { type: "STRING" },
+                      email: { type: "STRING" },
+                      address: { type: "STRING" }
                     }
                   }
                 },
                 raw_text: {
-                  type: "array",
-                  items: { type: "string" }
+                  type: "ARRAY",
+                  items: { type: "STRING" }
                 }
               },
               required: ["corners", "name", "company", "title", "phone", "email", "address", "profiles", "raw_text"]
             }
           },
           safetySettings: [
-            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
           ]
         })
       }
@@ -2316,39 +2316,46 @@ async function processOcr(compUrl, side) {
     if (brace) jt = brace[0];
 
     var parsed;
-    try   { 
-      // 💡 容錯 JSON 清理：自動去除註解與結尾逗號，提高 JSON.parse 成功率
-      var cleanedJt = jt
-        .replace(/\/\/.*/g, '')
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/,\s*([}\]])/g, '$1');
+    try {
+      // 1. 優先嘗試直接解析標準 JSON，若成功即為最精準無損狀態
+      parsed = JSON.parse(jt);
+      console.log('[Gemini JSON Parsed directly successfully]:', parsed);
+    } catch (e) {
+      console.warn('[Gemini JSON direct parse failed, trying preprocessors]:', e);
+      try   { 
+        // 💡 容錯 JSON 清理：自動去除註解與結尾逗號，提高 JSON.parse 成功率
+        var cleanedJt = jt
+          .replace(/\/\/.*/g, '')
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/,\s*([}\]])/g, '$1');
+          
+        // 💡 控制字元轉義：處理字串內部未轉義的換行/定位符，防止 JSON.parse 拋出控制字元錯誤
+        var inString = false;
+        var escapedJt = '';
+        for (var i = 0; i < cleanedJt.length; i++) {
+          var c = cleanedJt[i];
+          if (c === '"' && (i === 0 || cleanedJt[i-1] !== '\\')) {
+            inString = !inString;
+          }
+          if (inString && c === '\n') {
+            escapedJt += '\\n';
+          } else if (inString && c === '\r') {
+            // 忽略
+          } else if (inString && c === '\t') {
+            escapedJt += '\\t';
+          } else {
+            escapedJt += c;
+          }
+        }
         
-      // 💡 控制字元轉義：處理字串內部未轉義的換行/定位符，防止 JSON.parse 拋出控制字元錯誤
-      var inString = false;
-      var escapedJt = '';
-      for (var i = 0; i < cleanedJt.length; i++) {
-        var c = cleanedJt[i];
-        if (c === '"' && (i === 0 || cleanedJt[i-1] !== '\\')) {
-          inString = !inString;
-        }
-        if (inString && c === '\n') {
-          escapedJt += '\\n';
-        } else if (inString && c === '\r') {
-          // 忽略
-        } else if (inString && c === '\t') {
-          escapedJt += '\\t';
-        } else {
-          escapedJt += c;
-        }
+        parsed = JSON.parse(escapedJt);
+        console.log('[Gemini JSON Parsed after preprocessors successfully]:', parsed);
       }
-      
-      parsed = JSON.parse(escapedJt);
-      console.log('[Gemini JSON Parsed successfully]:', parsed);
-    }
-    catch (ex) {
-      console.warn('[Gemini JSON Parse failed, falling back to regex]:', ex);
-      parsed = extractFromText(rawText);
-      console.log('[Fallback regex parsed result]:', parsed);
+      catch (ex) {
+        console.warn('[Gemini JSON Parse failed after preprocessors, falling back to regex]:', ex);
+        parsed = extractFromText(rawText);
+        console.log('[Fallback regex parsed result]:', parsed);
+      }
     }
 
     // 統一調用去重與晶片標籤渲染邏輯
