@@ -1203,6 +1203,31 @@ function extractFromText(text) {
     var m = text.match(re);
     if (m && m[1] && !result[f]) result[f] = m[1];
   });
+
+  // 嘗試從文字中以 Regex 正則提取 corners 坐標，作為 JSON 解析失敗時的極限備援
+  var cornersMatch = text.match(/"corners"\s*:\s*\{[\s\S]*?\}/);
+  if (cornersMatch) {
+    try {
+      var cleanCornersStr = cornersMatch[0].replace(/"corners"\s*:\s*/, '');
+      var braceMatch = cleanCornersStr.match(/\{[\s\S]*?\}/);
+      if (braceMatch) {
+        result.corners = JSON.parse(braceMatch[0]);
+      }
+    } catch(e) {
+      var tlM = text.match(/"tl"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
+      var trM = text.match(/"tr"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
+      var brM = text.match(/"br"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
+      var blM = text.match(/"bl"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
+      if (tlM && trM && brM && blM) {
+        result.corners = {
+          tl: [parseFloat(tlM[1]), parseFloat(tlM[2])],
+          tr: [parseFloat(trM[1]), parseFloat(trM[2])],
+          br: [parseFloat(brM[1]), parseFloat(brM[2])],
+          bl: [parseFloat(blM[1]), parseFloat(blM[2])]
+        };
+      }
+    }
+  }
   return result;
 }
 
@@ -1745,7 +1770,8 @@ function openCropModal(imgDataUrl, side) {
 }
 
 function closeCropModal() {
-  document.getElementById('cropModal').style.display = 'none';
+  var m = document.getElementById('cropModal');
+  if (m) m.style.display = 'none';
 }
 
 function initCropDots() {
@@ -2025,15 +2051,16 @@ async function processOcr(compUrl, side) {
       '  ],\\n' +
       '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"],\\n' +
       '  "corners": {\\n' +
-      '    "tl": [左上角 x, y],\\n' +
-      '    "tr": [右上角 x, y],\\n' +
-      '    "br": [右下角 x, y],\\n' +
-      '    "bl": [左下角 x, y]\\n' +
+      '    "tl": [120, 250],\\n' +
+      '    "tr": [880, 240],\\n' +
+      '    "br": [870, 780],\\n' +
+      '    "bl": [130, 790]\\n' +
       '  }\\n' +
       '}\\n' +
       '【重要 OCR 注意事項】：\\n' +
       '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！\\n' +
-      '2. 【邊界四角定位】：請仔細偵測圖片中「白底名片本身」的四個物理邊角，並以坐標百分比（0~1000 之間的整數，圖片左上角為 [0,0]，右下角為 [1000,1000]）輸出在 corners 屬性中，用以進行 3D 視角拉平去背。請務必精準找出卡片的真正邊界，排除周邊的桌面背景！';
+      '2. 【邊界四角定位】：請仔細偵測圖片中「白底名片本身」的四個物理邊角，並以坐標百分比（0~1000 之間的整數，圖片左上角為 [0,0]，右下角為 [1000,1000]）輸出在 corners 屬性中，用以進行 3D 視角拉平去背。上面的 [120, 250] 等數值僅為格式範例，請替換為您偵測到的實際座標。\\n' +
+      '3. 【強制要求去背】：請務必精準找出卡片本身的真正物理邊界，以進行 3D 視角拉平去背。請不要返回整張圖片的四個角（如 [0,0], [1000,0] 等），必須排除周圍的桌面背景！';
 
     var resp = await fetch(
       'https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey,
@@ -2066,6 +2093,8 @@ async function processOcr(compUrl, side) {
     try { rawText = respData.candidates[0].content.parts[0].text || ''; }
     catch(ex) { throw new Error('API 回傳格式異常，請重試'); }
 
+    console.log('[Gemini API Raw Text]:', rawText);
+
     var jt = rawText.trim()
       .replace(/^```json\s*/i,'').replace(/^```\s*/i,'')
       .replace(/\s*```$/,'').trim();
@@ -2073,14 +2102,21 @@ async function processOcr(compUrl, side) {
     if (brace) jt = brace[0];
 
     var parsed;
-    try   { parsed = JSON.parse(jt); }
-    catch (ex) { parsed = extractFromText(rawText); }
+    try   { 
+      parsed = JSON.parse(jt);
+      console.log('[Gemini JSON Parsed successfully]:', parsed);
+    }
+    catch (ex) {
+      console.warn('[Gemini JSON Parse failed, falling back to regex]:', ex);
+      parsed = extractFromText(rawText);
+      console.log('[Fallback regex parsed result]:', parsed);
+    }
 
     // 統一調用去重與晶片標籤渲染邏輯
     var filled = writeParsedDataToForm(parsed, side);
 
     // ── 全自動 3D 透視拉平與背景切除 ──
-    if (parsed.corners && parsed.corners.tl && parsed.corners.tr && parsed.corners.br && parsed.corners.bl) {
+    if (parsed.corners && (parsed.corners.tl || parsed.corners.TL)) {
       try {
         var img = new Image();
         img.onload = function() {
@@ -2095,11 +2131,41 @@ async function processOcr(compUrl, side) {
           var imgH = img.naturalHeight || img.height;
           
           var c = parsed.corners;
+          
+          // 強健的座標點解析器，支援 [x, y], {x, y}, {X, Y} 或甚至字串，防範 AI 回傳格式微調
+          function getPoint(pt) {
+            if (!pt) return { x: 0, y: 0 };
+            var x = 0, y = 0;
+            if (Array.isArray(pt)) {
+              x = parseFloat(pt[0]);
+              y = parseFloat(pt[1]);
+            } else if (typeof pt === 'object') {
+              x = parseFloat(pt.x !== undefined ? pt.x : (pt.X !== undefined ? pt.X : pt[0]));
+              y = parseFloat(pt.y !== undefined ? pt.y : (pt.Y !== undefined ? pt.Y : pt[1]));
+            }
+            if (isNaN(x)) x = 0;
+            if (isNaN(y)) y = 0;
+            
+            // 將座標值歸一化至 0~1 的百分比區間
+            function norm(v) {
+              if (v >= 0 && v <= 1) return v;
+              if (v > 1 && v <= 100) return v / 100;
+              if (v > 100 && v <= 1000) return v / 1000;
+              return v / 1000; // 預設以 1000 分位解析
+            }
+            return { x: norm(x), y: norm(y) };
+          }
+          
+          var pTL = getPoint(c.tl || c.TL);
+          var pTR = getPoint(c.tr || c.TR);
+          var pBR = getPoint(c.br || c.BR);
+          var pBL = getPoint(c.bl || c.BL);
+          
           var srcPoints = [
-            { x: (c.tl[0] / 1000) * imgW, y: (c.tl[1] / 1000) * imgH },
-            { x: (c.tr[0] / 1000) * imgW, y: (c.tr[1] / 1000) * imgH },
-            { x: (c.br[0] / 1000) * imgW, y: (c.br[1] / 1000) * imgH },
-            { x: (c.bl[0] / 1000) * imgW, y: (c.bl[1] / 1000) * imgH }
+            { x: pTL.x * imgW, y: pTL.y * imgH },
+            { x: pTR.x * imgW, y: pTR.y * imgH },
+            { x: pBR.x * imgW, y: pBR.y * imgH },
+            { x: pBL.x * imgW, y: pBL.y * imgH }
           ];
           
           var dstPoints = [
