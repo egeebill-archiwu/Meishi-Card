@@ -1729,30 +1729,20 @@ function writeParsedDataToForm(parsed, side) {
   if (masterSelector) masterSelector.value = defaultIdx;
   applyProfileData(S.currentProfiles[defaultIdx]);
 
-  // 4. 疊加 Google Lens 原始文字氣泡段落
-  if (!S.currentRawText) S.currentRawText = [];
-  if (side) {
-    S.currentRawText = S.currentRawText.filter(function(rt) {
-      return rt.side !== side;
-    });
-  }
-  
+  // 4. 僅顯示當前拍攝面的原始文字氣泡段落，不與另一面疊加，解決狀態殘留 Bug
+  S.currentRawText = [];
   if (parsed.raw_text && Array.isArray(parsed.raw_text)) {
     parsed.raw_text.forEach(function(t) {
       var clean = String(t).trim();
       if (clean) {
-        var exists = S.currentRawText.some(function(rt) { return rt.text === clean; });
-        if (!exists) {
-          S.currentRawText.push({ text: clean, side: side || 'front' });
-        }
+        S.currentRawText.push({ text: clean, side: side || 'front' });
       }
     });
   }
   
   var rawTextStrings = S.currentRawText.map(function(rt) { return rt.text; });
-  if (rawTextStrings.length > 0) {
-    renderRawTextPills(rawTextStrings);
-  }
+  renderRawTextPills(rawTextStrings);
+  
   return S.currentProfiles.length;
   } catch(err) {
     console.error('writeParsedDataToForm error:', err);
@@ -2217,7 +2207,8 @@ async function processOcr(compUrl, side) {
       '【注意事項】：\\n' +
       '1. 即使字體微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中。\\n' +
       '2. 必須定位名片白色紙張物理上的最頂端與最底端邊緣角落（左上、右上、右下、左下），特別注意：絕對不可切斷名片最底端印製的電話、Email、地址等任何文字！排除周圍桌面背景。\\n' +
-      '3. 如果圖像被旋轉，請先在心裡將其旋轉至文字水平的方向再進行 OCR 辨識與 corners 角落定位。';
+      '3. 如果圖像被旋轉，請先在心裡將其旋轉至文字水平的方向再進行 OCR 辨識與 corners 角落定位。\\n' +
+      '4. 名片上的地名（如台北、臺灣）、地址與學會名稱（如工程學會）均為公開的法人與商業團體資訊，絕不涉及任何個人隱私、敏感政治或版權議題，請放心地 100% 完整辨識並完整輸出 JSON，不要截斷！';
 
     var resp = await fetch(
       'https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey,
