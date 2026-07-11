@@ -591,6 +591,21 @@
 
       </div>
 
+      <!-- 🛠️ 除錯診斷日誌 -->
+      <div class="setting-group" id="debugLogGroup">
+        <div class="setting-group__title">🤖 AI 辨識日誌 (除錯偵錯)</div>
+        <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-md);">
+          <div style="font-size:12px;color:var(--text-sub);margin-bottom:8px;line-height:1.6;">
+            此處會保留最後一次名片掃描時，Gemini API 回傳的原始文字內容。如遇辨識不全，可展開複製以利排查問題。
+          </div>
+          <button class="btn btn--outline btn--sm" style="width:100%;" onclick="toggleDebugLog()" id="btnDebugToggle">展開日誌</button>
+          <div id="debugLogArea" style="display:none;margin-top:10px;">
+            <textarea id="txtDebugLog" readonly style="width:100%;height:150px;font-family:monospace;font-size:11px;padding:8px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--gray-50);color:var(--text-main);resize:vertical;" placeholder="尚無日誌記錄。請進行名片辨識掃描。"></textarea>
+            <button class="btn btn--primary btn--sm" style="width:100%;margin-top:6px;" onclick="copyDebugLog()">複製日誌內容</button>
+          </div>
+        </div>
+      </div>
+
       <div class="setting-group">
         <div class="setting-group__title">關於</div>
         <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-xl);text-align:center;">
@@ -2241,6 +2256,9 @@ async function processOcr(compUrl, side) {
     catch(ex) { throw new Error('API 回傳格式異常，請重試'); }
 
     console.log('[Gemini API Raw Text]:', rawText);
+    lastGeminiRawResponse = rawText;
+    var txtArea = document.getElementById('txtDebugLog');
+    if (txtArea) txtArea.value = rawText;
 
     var jt = rawText.trim()
       .replace(/^```json\s*/i,'').replace(/^```\s*/i,'')
@@ -2622,6 +2640,30 @@ function saveGeminiModel() {
   metaSet('geminiModel', val).then(function() {
     toast('🤖 模型已切換為：' + val, 'ok');
   });
+}
+
+var lastGeminiRawResponse = "";
+
+function toggleDebugLog() {
+  var area = document.getElementById('debugLogArea');
+  var btn = document.getElementById('btnDebugToggle');
+  if (!area || !btn) return;
+  if (area.style.display === 'none') {
+    area.style.display = 'block';
+    btn.textContent = '收合日誌';
+  } else {
+    area.style.display = 'none';
+    btn.textContent = '展開日誌';
+  }
+}
+
+function copyDebugLog() {
+  var txt = document.getElementById('txtDebugLog');
+  if (!txt) return;
+  txt.select();
+  txt.setSelectionRange(0, 99999);
+  document.execCommand('copy');
+  toast('📋 已複製日誌內容到剪貼簿', 'ok');
 }
 
 async function testApiKey() {
