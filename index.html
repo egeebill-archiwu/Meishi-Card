@@ -2077,7 +2077,7 @@ async function processOcr(compUrl, side) {
     catch (ex) { parsed = extractFromText(rawText); }
 
     // 統一調用去重與晶片標籤渲染邏輯
-    var filled = writeParsedDataToForm(parsed);
+    var filled = writeParsedDataToForm(parsed, side);
 
     // ── 全自動 3D 透視拉平與背景切除 ──
     if (parsed.corners && parsed.corners.tl && parsed.corners.tr && parsed.corners.br && parsed.corners.bl) {
