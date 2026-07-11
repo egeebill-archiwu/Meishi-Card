@@ -1490,7 +1490,8 @@ function savePhotoAndGo() {
 }
 
 function writeParsedDataToForm(parsed, side) {
-  var name = parsed.name ? String(parsed.name).trim() : '';
+  try {
+    var name = parsed.name ? String(parsed.name).trim() : '';
   if (name) {
     var nameEl = document.getElementById('fName');
     if (nameEl) nameEl.value = name;
@@ -1499,7 +1500,26 @@ function writeParsedDataToForm(parsed, side) {
   // 1. 解析出結構化的身分群組 (Profiles)
   var incomingProfiles = [];
   if (parsed.profiles && Array.isArray(parsed.profiles)) {
-    incomingProfiles = parsed.profiles;
+    parsed.profiles.forEach(function(item) {
+      if (item && typeof item === 'object') {
+        incomingProfiles.push({
+          company: item.company ? String(item.company).trim() : '',
+          title: item.title ? String(item.title).trim() : '',
+          phone: item.phone ? String(item.phone).trim() : '',
+          email: item.email ? String(item.email).trim() : '',
+          address: item.address ? String(item.address).trim() : ''
+        });
+      } else if (item && typeof item === 'string') {
+        // AI 稀有情況下回傳字串陣列時之安全相容
+        incomingProfiles.push({
+          company: item.trim(),
+          title: parsed.title ? String(parsed.title).trim() : '',
+          phone: parsed.phone ? String(parsed.phone).trim() : '',
+          email: parsed.email ? String(parsed.email).trim() : '',
+          address: parsed.address ? String(parsed.address).trim() : ''
+        });
+      }
+    });
   } else {
     // 備援方案：將舊扁平格式轉為身分群組
     function splitFlatVal(val) {
@@ -1526,9 +1546,11 @@ function writeParsedDataToForm(parsed, side) {
 
   // 👔 屬性補全備援：若 profiles 陣列內的子項缺少 phone/email/address，自動繼承根目錄對應欄位
   incomingProfiles.forEach(function(p) {
-    if (!p.phone && parsed.phone) p.phone = parsed.phone;
-    if (!p.email && parsed.email) p.email = parsed.email;
-    if (!p.address && parsed.address) p.address = parsed.address;
+    if (p && typeof p === 'object') {
+      if (!p.phone && parsed.phone) p.phone = parsed.phone;
+      if (!p.email && parsed.email) p.email = parsed.email;
+      if (!p.address && parsed.address) p.address = parsed.address;
+    }
   });
 
   // 過濾掉全空的 Profile
@@ -1668,10 +1690,16 @@ function writeParsedDataToForm(parsed, side) {
     renderRawTextPills(rawTextStrings);
   }
   return S.currentProfiles.length;
+  } catch(err) {
+    console.error('writeParsedDataToForm error:', err);
+    toast('❌ 欄位填入出錯: ' + err.message, 'err');
+    return 0;
+  }
 }
 
 // 實體欄位寫入與子下拉選單同步函數
 function applyProfileData(profile) {
+  if (!profile) return;
   // 清理舊的下拉選單
   clearAllFormSelects();
 
