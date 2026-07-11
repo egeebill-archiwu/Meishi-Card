@@ -2232,7 +2232,7 @@ async function processOcr(compUrl, side) {
         body: JSON.stringify({
           contents: [{
             parts: [
-              { inline_data: { mime_type: mime, data: b64 } },
+              { inlineData: { mimeType: mime, data: b64 } },
               { text: prompt }
             ]
           }],
@@ -2254,7 +2254,7 @@ async function processOcr(compUrl, side) {
     if (!resp.ok) {
       var errJson = await resp.json().catch(function(){ return {}; });
       var errMsg  = (errJson.error && errJson.error.message) || 'HTTP ' + resp.status;
-      if (resp.status === 400) throw new Error('請求格式錯誤，請確認 API Key 是否正確');
+      if (resp.status === 400) throw new Error('請求格式錯誤：' + errMsg);
       if (resp.status === 403) throw new Error('API Key 無效或無權限，請重新到設定確認');
       if (resp.status === 429) throw new Error('API 呼叫次數已達上限，請稍後再試');
       throw new Error('API 錯誤：' + errMsg);
