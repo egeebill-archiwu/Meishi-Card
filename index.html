@@ -1229,14 +1229,14 @@ function extractFromText(text) {
   var phoneM = text.match(/(?:\+?886[-\s]?|0)[2-9][\d\s()-]{6,12}/);
   if (phoneM) result.phone = phoneM[0].trim();
   
-  // 👔 屬性匹配：支援字串及陣列格式，確保 regex 備援也能拿到 company, title 等欄位
+  // 👔 屬性匹配：支援單/雙/無引號之字串及陣列格式，確保 regex 備援也能拿到 company, title 等欄位
   ['name','company','title','phone','email','address'].forEach(function(f) {
     // 優先匹配陣列格式，如 "company": ["A", "B"]
-    var arrRe = new RegExp('"' + f + '"\\s*:\\s*\\[([\\s\\S]*?)\\]', 'i');
+    var arrRe = new RegExp('["\']?' + f + '["\']?\\s*:\\s*\\[([\\s\\S]*?)\\]', 'i');
     var arrM = text.match(arrRe);
     if (arrM && arrM[1]) {
       var items = [];
-      var strRe = /"([^"]*)"/g;
+      var strRe = /["']([^"']*)["']/g;
       var match;
       while ((match = strRe.exec(arrM[1])) !== null) {
         items.push(match[1]);
@@ -1247,17 +1247,17 @@ function extractFromText(text) {
       }
     }
     // 次優先匹配單一字串格式
-    var re = new RegExp('"' + f + '"\\s*:\\s*"([^"]*)"', 'i');
+    var re = new RegExp('["\']?' + f + '["\']?\\s*:\\s*["\']([^"\']*)["\']', 'i');
     var m = text.match(re);
     if (m && m[1] && !result[f]) result[f] = m[1];
   });
 
   // 嘗試從文字中以 Regex 提取 raw_text 陣列，作為 JSON 解析失敗時的極限備援
-  var rawTextMatch = text.match(/"raw_?texts?(?:_list)?"\s*:\s*\[([\s\S]*?)\]/i);
+  var rawTextMatch = text.match(/["']?raw_?texts?(?:_list)?["']?\s*:\s*\[([\s\S]*?)\]/i);
   if (rawTextMatch && rawTextMatch[1]) {
     try {
       var items = [];
-      var strRegex = /"([^"]*)"/g;
+      var strRegex = /["']([^"']*)["']/g;
       var match;
       while ((match = strRegex.exec(rawTextMatch[1])) !== null) {
         items.push(match[1]);
@@ -1271,7 +1271,7 @@ function extractFromText(text) {
   }
 
   // 嘗試從文字中以 Regex 提取 profiles 陣列，作為 JSON 解析失敗時的極限備援
-  var profilesMatch = text.match(/"profiles?"\s*:\s*\[([\s\S]*?)\]/i);
+  var profilesMatch = text.match(/["']?profiles?["']?\s*:\s*\[([\s\S]*?)\]/i);
   if (profilesMatch && profilesMatch[1]) {
     try {
       var profilesList = [];
@@ -1280,7 +1280,7 @@ function extractFromText(text) {
       while ((objMatch = objRegex.exec(profilesMatch[1])) !== null) {
         var pObj = {};
         ['company','title','phone','email','address'].forEach(function(f) {
-          var re = new RegExp('"' + f + '"\\s*:\\s*"([^"]*)"', 'i');
+          var re = new RegExp('["\']?' + f + '["\']?\\s*:\\s*["\']([^"\']*)["\']', 'i');
           var m = objMatch[1].match(re);
           if (m && m[1]) pObj[f] = m[1];
         });
@@ -1297,7 +1297,7 @@ function extractFromText(text) {
   }
 
   // 嘗試從文字中以 Regex 正則提取 corners 坐標，作為 JSON 解析失敗時的極限備援
-  var cornersMatch = text.match(/"corners"\s*:\s*\{[\s\S]*?\}/);
+  var cornersMatch = text.match(/["']?corners["']?\s*:\s*\{[\s\S]*?\}/i);
   if (cornersMatch) {
     try {
       var cleanCornersStr = cornersMatch[0].replace(/"corners"\s*:\s*/, '');
@@ -1559,7 +1559,11 @@ function writeParsedDataToForm(parsed, side) {
     // 🔍 診斷通知：顯示載入之屬性鍵
     var keys = Object.keys(parsed).filter(function(k) { return parsed[k] !== undefined && parsed[k] !== null; });
     console.log('[writeParsedDataToForm keys]:', keys);
-    toast('🔍 AI 載入屬性 [' + (parsed._isFallback ? '備援' : 'JSON') + ']: ' + keys.filter(function(k){return k !== '_isFallback';}).join(', '), 'info');
+    var toastMsg = '🔍 AI 載入屬性 [' + (parsed._isFallback ? '備援' : 'JSON') + ']: ' + keys.filter(function(k){return k !== '_isFallback';}).join(', ');
+    if (parsed._isFallback) {
+      toastMsg += ' (若資訊不全，可至「設定」展開「AI 辨識日誌」查看原始回傳內容)';
+    }
+    toast(toastMsg, 'info');
 
   // 1. 解析出結構化的身分群組 (Profiles)
   var incomingProfiles = [];
@@ -2215,9 +2219,10 @@ async function processOcr(compUrl, side) {
       '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"]\\n' +
       '}\\n' +
       '【重要 OCR 注意事項】：\\n' +
+      '0. 【重要旋轉說明】：本圖像可能相對於正向旋轉了 90 度、180 度或 270 度（側向或上下顛倒）。請務必先在心裡將名片圖像旋轉至字體呈正常的水平方向（文字由左至右、由上至下閱讀的方向）後，再進行 OCR 辨識與 corners 物理角落定位，確保讀取精準度。\\n' +
       '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！\\n' +
       '2. 【邊界定位精準度警告與要求】：\\n' +
-      '   - 必須精準定位名片白色紙張本身的四個物理角落（以 0~1000 百分比整數表示，左上角為 [0,0]，右下角為 [1000,1000]），排除任何周圍的桌面背景！上面的 [0, 0] 等為範本，請替換為實際偵測到的座標。\\n' +
+      '   - 必須精準定位名片白色紙張本身的四個物理角落（以 0~1000 百分比整數表示，左上角為 [0,0]，grid 右下角為 [1000,1000]），排除任何周圍的桌面背景！上面的 [0, 0] 等為範本，請替換為實際偵測到的座標。\\n' +
       '   - 【防止頂部被切除】：名片最上方通常有一塊白色的留白邊緣（即第一行文字之上的白色紙張邊界），這依然屬於名片範圍！請務必把 tl 和 tr 定位在白色紙張的「最頂端物理角落」，絕對不能切掉名片頂部的公司商標、Logo 或文字（如「漢華國際...」）！\\n' +
       '   - 【防止底部殘留桌面】：名片最下方有褐色的木紋桌面，請看清白色紙張的底部邊界，將 bl 和 br 精確定位在名片底部（包含底部的藍色條紋等裝飾）的「最底端物理角落」，不要包含 any 桌面背景！\\n' +
       '   - 嚴禁直接返回整張圖片的四個邊角（如 [0,0], [1000,0] 等）。\\n' +
@@ -2236,7 +2241,13 @@ async function processOcr(compUrl, side) {
               { text: prompt }
             ]
           }],
-          generation_config: { temperature: 0.1, max_output_tokens: 2048 }
+          generation_config: { temperature: 0.1, max_output_tokens: 2048 },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+          ]
         })
       }
     );
