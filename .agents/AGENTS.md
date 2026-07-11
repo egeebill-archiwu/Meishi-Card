@@ -6,6 +6,7 @@
 * **API 端點：** 必須且只能使用標準生產版 `/v1/` 端點（例如 `https://generativelanguage.googleapis.com/v1/...`）。
 * **參數命名規範：** 必須使用 `snake_case`（蛇形命名法，如 `inline_data`、`mime_type`、`generation_config`、`max_output_tokens`）。
 * **不相容欄位：** 絕對不可在 `generation_config` 中傳入 `response_mime_type` (或 `responseMimeType`)！這在 `/v1/` 端點下會導致致命的 `400 Bad Request` 格式錯誤。
+* **安全過濾閾值 (safetySettings)：** 必須設定為 `BLOCK_ONLY_HIGH`，**絕對不可使用 `BLOCK_NONE`**！免費帳戶 API Key 使用 `BLOCK_NONE` 會觸發 Google 後台的無聲拒絕或導致內容中途截斷（在辨識「台北、臺灣」等名詞時會斬斷流輸出）。
 
 ## 2. 金鑰支援模型限制 (LTS 與新金鑰特性)
 * 本專案使用的 Google API Key 屬於新版免費層級：
