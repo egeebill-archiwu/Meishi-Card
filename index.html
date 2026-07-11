@@ -1595,8 +1595,18 @@ function writeParsedDataToForm(parsed, side) {
     if (masterContainer) masterContainer.style.display = 'none';
   }
 
-  // 3. 預設載入最新追加的身分資訊 (通常是反面)，讓使用者知道有成功解析，但可在頂部隨時切換回正面
-  var defaultIdx = S.currentProfiles.length - 1;
+  // 3. 預設載入最新感應拍攝之側邊（side）的第一個身分資訊，讓使用者知道有成功解析，且切換順序更自然
+  var defaultIdx = 0;
+  if (side) {
+    for (var i = 0; i < S.currentProfiles.length; i++) {
+      if (S.currentProfiles[i].side === side) {
+        defaultIdx = i;
+        break;
+      }
+    }
+  } else {
+    defaultIdx = S.currentProfiles.length - 1;
+  }
   if (masterSelector) masterSelector.value = defaultIdx;
   applyProfileData(S.currentProfiles[defaultIdx]);
 
@@ -2057,10 +2067,10 @@ async function processOcr(compUrl, side) {
     var prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\\n' +
       '{\\n' +
       '  "corners": {\\n' +
-      '    "tl": [120, 250],\\n' +
-      '    "tr": [880, 240],\\n' +
-      '    "br": [870, 780],\\n' +
-      '    "bl": [130, 790]\\n' +
+      '    "tl": [左上角x座標0至1000整數, 左上角y座標0至1000整數],\\n' +
+      '    "tr": [右上角x座標0至1000整數, 右上角y座標0至1000整數],\\n' +
+      '    "br": [右下角x座標0至1000整數, 右下角y座標0至1000整數],\\n' +
+      '    "bl": [左下角x座標0至1000整數, 左下角y座標0至1000整數]\\n' +
       '  },\\n' +
       '  "name": "姓名（務必去除字元間的空格，如「劉炳界」）",\\n' +
       '  "company": "所有公司或組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\\n' +
