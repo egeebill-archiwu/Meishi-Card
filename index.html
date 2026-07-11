@@ -2239,7 +2239,46 @@ async function processOcr(compUrl, side) {
           generationConfig: {
             temperature: 0.1,
             maxOutputTokens: 2048,
-            responseMimeType: "application/json"
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "object",
+              properties: {
+                corners: {
+                  type: "object",
+                  properties: {
+                    tl: { type: "array", items: { type: "integer" } },
+                    tr: { type: "array", items: { type: "integer" } },
+                    br: { type: "array", items: { type: "integer" } },
+                    bl: { type: "array", items: { type: "integer" } }
+                  },
+                  required: ["tl", "tr", "br", "bl"]
+                },
+                name: { type: "string" },
+                company: { type: "string" },
+                title: { type: "string" },
+                phone: { type: "string" },
+                email: { type: "string" },
+                address: { type: "string" },
+                profiles: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      company: { type: "string" },
+                      title: { type: "string" },
+                      phone: { type: "string" },
+                      email: { type: "string" },
+                      address: { type: "string" }
+                    }
+                  }
+                },
+                raw_text: {
+                  type: "array",
+                  items: { type: "string" }
+                }
+              },
+              required: ["corners", "name", "company", "title", "phone", "email", "address", "profiles", "raw_text"]
+            }
           },
           safetySettings: [
             { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
