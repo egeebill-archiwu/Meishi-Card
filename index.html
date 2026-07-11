@@ -1411,6 +1411,21 @@ function showConfirmModal(warpedImgUrl, parsedResult) {
   var modal = document.getElementById('confirmModal');
   var img = document.getElementById('confirmPreviewImg');
   img.src = warpedImgUrl;
+  
+  var diag = document.getElementById('confirmDiagnosticInfo');
+  if (diag) {
+    if (parsedResult && parsedResult.corners) {
+      var c = parsedResult.corners;
+      var tl = c.tl || c.TL;
+      var tr = c.tr || c.TR;
+      var br = c.br || c.BR;
+      var bl = c.bl || c.BL;
+      diag.textContent = '🔍 AI 定位點: tl[' + (tl||'—') + '], tr[' + (tr||'—') + '], br[' + (br||'—') + '], bl[' + (bl||'—') + ']';
+    } else {
+      diag.textContent = '🔍 AI 定位點: 未偵測到四角 (使用原圖)';
+    }
+  }
+  
   modal.style.display = 'flex';
 }
 
@@ -2034,6 +2049,12 @@ async function processOcr(compUrl, side) {
     // 支持多公司與多重身分智慧提取，引導 Gemini 輸出關聯群組結構（profiles 陣列）與原始文字段落（raw_text）
     var prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\\n' +
       '{\\n' +
+      '  "corners": {\\n' +
+      '    "tl": [120, 250],\\n' +
+      '    "tr": [880, 240],\\n' +
+      '    "br": [870, 780],\\n' +
+      '    "bl": [130, 790]\\n' +
+      '  },\\n' +
       '  "name": "姓名（務必去除字元間的空格，如「劉炳界」）",\\n' +
       '  "company": "所有公司或組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\\n' +
       '  "title": "職稱（以 / 分隔）",\\n' +
@@ -2049,13 +2070,7 @@ async function processOcr(compUrl, side) {
       '      "address": "此身分的地址"\\n' +
       '    }\\n' +
       '  ],\\n' +
-      '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"],\\n' +
-      '  "corners": {\\n' +
-      '    "tl": [120, 250],\\n' +
-      '    "tr": [880, 240],\\n' +
-      '    "br": [870, 780],\\n' +
-      '    "bl": [130, 790]\\n' +
-      '  }\\n' +
+      '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"]\\n' +
       '}\\n' +
       '【重要 OCR 注意事項】：\\n' +
       '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！\\n' +
@@ -2864,10 +2879,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   <div id="confirmModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#111; z-index:10001; flex-direction:column; align-items:center; justify-content:space-between; padding: 40px 0; color:#fff; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; user-select:none; -webkit-user-select:none;">
     <div style="font-size:18px; font-weight:600; letter-spacing:1px; margin-top:20px;">📸 掃描成果暫存區</div>
     
-    <!-- 自動 3D 拉直裁切後的預覽大圖 -->
     <div style="width:90%; max-width:340px; aspect-ratio:1.6 / 1; border-radius:12px; overflow:hidden; box-shadow:0 12px 30px rgba(0,0,0,0.6); background:#222; border:1px solid rgba(255,255,255,0.15);">
       <img id="confirmPreviewImg" style="width:100%; height:100%; object-fit:contain; display:block;">
     </div>
+    <div id="confirmDiagnosticInfo" style="font-size:11px; color:#FFD54F; font-family:monospace; text-align:center; padding:0 10px; width:90%; word-break:break-all;">🔍 AI 定位點: 偵測中...</div>
     
     <div style="font-size:13px; color:#A0A0A0; text-align:center; padding:0 20px; line-height:1.4;">
       已為您自動切除背景、完成 3D 擺平！<br>點選保留以儲存名片並自動解析歸檔。
