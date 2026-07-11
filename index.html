@@ -1491,6 +1491,13 @@ function writeParsedDataToForm(parsed, side) {
     }
   }
 
+  // 👔 屬性補全備援：若 profiles 陣列內的子項缺少 phone/email/address，自動繼承根目錄對應欄位
+  incomingProfiles.forEach(function(p) {
+    if (!p.phone && parsed.phone) p.phone = parsed.phone;
+    if (!p.email && parsed.email) p.email = parsed.email;
+    if (!p.address && parsed.address) p.address = parsed.address;
+  });
+
   // 過濾掉全空的 Profile
   incomingProfiles = incomingProfiles.filter(function(p) {
     return p.company || p.title || p.phone || p.email || p.address;
@@ -2074,8 +2081,11 @@ async function processOcr(compUrl, side) {
       '}\\n' +
       '【重要 OCR 注意事項】：\\n' +
       '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！\\n' +
-      '2. 【邊界四角定位】：請仔細偵測圖片中「白底名片本身」的四個物理邊角，並以坐標百分比（0~1000 之間的整數，圖片左上角為 [0,0]，右下角為 [1000,1000]）輸出在 corners 屬性中，用以進行 3D 視角拉平去背。上面的 [120, 250] 等數值僅為格式範例，請替換為您偵測到的實際座標。\\n' +
-      '3. 【強制要求去背】：請務必精準找出卡片本身的真正物理邊界，以進行 3D 視角拉平去背。請不要返回整張圖片的四個角（如 [0,0], [1000,0] 等），必須排除周圍的桌面背景！';
+      '2. 【邊界定位精準度警告與要求】：\\n' +
+      '   - 必須精準定位名片白色紙張本身的四個物理角落（以 0~1000 百分比整數表示，左上角為 [0,0]，右下角為 [1000,1000]），排除任何周圍的桌面背景！上面的 [120, 250] 等為範例，請替換為實際座標。\\n' +
+      '   - 【防止頂部被切除】：名片最上方通常有一塊白色的留白邊緣（即第一行文字之上的白色紙張邊界），這依然屬於名片範圍！請務必把 tl 和 tr 定位在白色紙張的「最頂端物理角落」，絕對不能切掉名片頂部的公司商標、Logo 或文字（如「漢華國際...」）！\\n' +
+      '   - 【防止底部殘留桌面】：名片最下方有褐色的木紋桌面，請看清白色紙張的底部邊界，將 bl 和 br 精確定位在名片底部（包含底部的藍色條紋等裝飾）的「最底端物理角落」，不要包含任何桌子背景！\\n' +
+      '   - 嚴禁直接返回整張圖片的四個邊角（如 [0,0], [1000,0] 等）。';
 
     var resp = await fetch(
       'https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey,
