@@ -832,7 +832,7 @@ async function aiSearch(q) {
       return '['+i+'] '+[c.name,c.company,c.title,c.industry,c.region,'底色:'+(c.bgColor||'?'),'備註:'+(c.note||'')].join('|');
     }).join('\n');
     var prompt = '你是名片搜尋助理。根據查詢從以下名片找出最符合的索引，只回傳JSON陣列如[0,2]，無則[]，不加說明。\n查詢：「'+q+'」\n名片：\n'+summary;
-    var resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey, {
+    var resp = await fetch('https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.1,maxOutputTokens:128} })
@@ -2225,27 +2225,23 @@ async function processOcr(compUrl, side) {
       '   - 必須完整且無遺漏地返回 JSON 結構中的所有欄位！特別是 "profiles" 陣列（包含各個身分的詳細資訊物件）以及 "raw_text" 陣列（必須將所有名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、職稱、地址等以字串形式完整列出）。絕對不能忽略或省略這兩個欄位，否則系統會出錯！';
 
     var resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey,
+      'https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
             parts: [
-              { inlineData: { mimeType: mime, data: b64 } },
+              { inline_data: { mime_type: mime, data: b64 } },
               { text: prompt }
             ]
           }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 2048,
-            responseMimeType: "application/json"
-          },
+          generation_config: { temperature: 0.1, max_output_tokens: 2048 },
           safetySettings: [
-            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
-            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
           ]
         })
       }
@@ -2277,46 +2273,39 @@ async function processOcr(compUrl, side) {
     if (brace) jt = brace[0];
 
     var parsed;
-    try {
-      // 1. 優先嘗試直接解析標準 JSON，若成功即為最精準無損狀態
-      parsed = JSON.parse(jt);
-      console.log('[Gemini JSON Parsed directly successfully]:', parsed);
-    } catch (e) {
-      console.warn('[Gemini JSON direct parse failed, trying preprocessors]:', e);
-      try   { 
-        // 💡 容錯 JSON 清理：自動去除註解與結尾逗號，提高 JSON.parse 成功率
-        var cleanedJt = jt
-          .replace(/\/\/.*/g, '')
-          .replace(/\/\*[\s\S]*?\*\//g, '')
-          .replace(/,\s*([}\]])/g, '$1');
-          
-        // 💡 控制字元轉義：處理字串內部未轉義的換行/定位符，防止 JSON.parse 拋出控制字元錯誤
-        var inString = false;
-        var escapedJt = '';
-        for (var i = 0; i < cleanedJt.length; i++) {
-          var c = cleanedJt[i];
-          if (c === '"' && (i === 0 || cleanedJt[i-1] !== '\\')) {
-            inString = !inString;
-          }
-          if (inString && c === '\n') {
-            escapedJt += '\\n';
-          } else if (inString && c === '\r') {
-            // 忽略
-          } else if (inString && c === '\t') {
-            escapedJt += '\\t';
-          } else {
-            escapedJt += c;
-          }
-        }
+    try   { 
+      // 💡 容錯 JSON 清理：自動去除註解與結尾逗號，提高 JSON.parse 成功率
+      var cleanedJt = jt
+        .replace(/\/\/.*/g, '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/,\s*([}\]])/g, '$1');
         
-        parsed = JSON.parse(escapedJt);
-        console.log('[Gemini JSON Parsed after preprocessors successfully]:', parsed);
+      // 💡 控制字元轉義：處理字串內部未轉義的換行/定位符，防止 JSON.parse 拋出控制字元錯誤
+      var inString = false;
+      var escapedJt = '';
+      for (var i = 0; i < cleanedJt.length; i++) {
+        var c = cleanedJt[i];
+        if (c === '"' && (i === 0 || cleanedJt[i-1] !== '\\')) {
+          inString = !inString;
+        }
+        if (inString && c === '\n') {
+          escapedJt += '\\n';
+        } else if (inString && c === '\r') {
+          // 忽略
+        } else if (inString && c === '\t') {
+          escapedJt += '\\t';
+        } else {
+          escapedJt += c;
+        }
       }
-      catch (ex) {
-        console.warn('[Gemini JSON Parse failed after preprocessors, falling back to regex]:', ex);
-        parsed = extractFromText(rawText);
-        console.log('[Fallback regex parsed result]:', parsed);
-      }
+      
+      parsed = JSON.parse(escapedJt);
+      console.log('[Gemini JSON Parsed successfully]:', parsed);
+    }
+    catch (ex) {
+      console.warn('[Gemini JSON Parse failed, falling back to regex]:', ex);
+      parsed = extractFromText(rawText);
+      console.log('[Fallback regex parsed result]:', parsed);
     }
 
     // 統一調用去重與晶片標籤渲染邏輯
@@ -2695,7 +2684,7 @@ async function testApiKey() {
   reportEl.innerHTML = '⚡️ 正在連線測試 Google API 伺服器...';
   
   try {
-    var resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key=' + val);
+    var resp = await fetch('https://generativelanguage.googleapis.com/v1/models?key=' + val);
     if (!resp.ok) {
       var errJson = await resp.json().catch(function(){ return {}; });
       var errMsg = (errJson.error && errJson.error.message) || 'HTTP ' + resp.status;
