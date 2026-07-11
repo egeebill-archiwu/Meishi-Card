@@ -566,8 +566,7 @@
           <div class="form-group" style="margin-top:var(--sp-md);margin-bottom:var(--sp-md);">
             <label class="form-label">指定 AI 模型 (Gemini Model)</label>
             <select class="form-input" id="geminiModel" onchange="saveGeminiModel()" style="background:var(--white);border:1px solid var(--border);border-radius:var(--r-md);height:38px;padding:0 var(--sp-sm);width:100%;font-size:13px;">
-              <option value="gemini-2.5-pro">Gemini 2.5 Pro (推薦：最強高階型 - 辨識率最高)</option>
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash (極速型)</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (推薦：最新極速型)</option>
             </select>
           </div>
 
@@ -673,7 +672,7 @@ var S = {
   query: '',
   ind: 'all',
   geminiKey: '',
-  geminiModel: 'gemini-2.5-pro',
+  geminiModel: 'gemini-2.5-flash',
   editId: null,
   currentProfiles: [],
   currentRawText: [],
@@ -2613,7 +2612,7 @@ async function loadSettings() {
   var key = await metaGet('geminiKey');
   if (key) { S.geminiKey = key; document.getElementById('geminiKey').value = key; }
   
-  var model = await metaGet('geminiModel') || 'gemini-2.5-pro';
+  var model = await metaGet('geminiModel') || 'gemini-2.5-flash';
   S.geminiModel = model;
   document.getElementById('geminiModel').value = model;
   
