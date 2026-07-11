@@ -2236,7 +2236,13 @@ async function processOcr(compUrl, side) {
               { text: prompt }
             ]
           }],
-          generation_config: { temperature: 0.1, max_output_tokens: 2048 }
+          generation_config: { temperature: 0.1, max_output_tokens: 2048 },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+          ]
         })
       }
     );
@@ -2375,8 +2381,8 @@ async function processOcr(compUrl, side) {
           var pBL = getPoint(c.bl || c.BL);
           
           // 💡 智慧四角微調（Outward Margin Padding）：
-          // 由於 AI 定位角落有時偏緊而切到邊線，自動將四個座標向外延伸 1.8% 以求完美安全餘裕
-          var pad = 0.018;
+          // 由於 AI 定位角落有時偏緊而切到邊線，自動將四個座標向外延伸 2.8% 以求完美安全餘裕
+          var pad = 0.028;
           pTL.x = Math.max(0, pTL.x - pad); pTL.y = Math.max(0, pTL.y - pad);
           pTR.x = Math.min(1, pTR.x + pad); pTR.y = Math.max(0, pTR.y - pad);
           pBR.x = Math.min(1, pBR.x + pad); pBR.y = Math.min(1, pBR.y + pad);
