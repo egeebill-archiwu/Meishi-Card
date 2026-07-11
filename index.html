@@ -1238,7 +1238,7 @@ function extractFromText(text) {
   });
 
   // 嘗試從文字中以 Regex 提取 raw_text 陣列，作為 JSON 解析失敗時的極限備援
-  var rawTextMatch = text.match(/"raw_text"\s*:\s*\[([\s\S]*?)\]/);
+  var rawTextMatch = text.match(/"raw_?texts?(?:_list)?"\s*:\s*\[([\s\S]*?)\]/i);
   if (rawTextMatch && rawTextMatch[1]) {
     try {
       var items = [];
@@ -1256,7 +1256,7 @@ function extractFromText(text) {
   }
 
   // 嘗試從文字中以 Regex 提取 profiles 陣列，作為 JSON 解析失敗時的極限備援
-  var profilesMatch = text.match(/"profiles"\s*:\s*\[([\s\S]*?)\]/);
+  var profilesMatch = text.match(/"profiles?"\s*:\s*\[([\s\S]*?)\]/i);
   if (profilesMatch && profilesMatch[1]) {
     try {
       var profilesList = [];
@@ -2255,7 +2255,27 @@ async function processOcr(compUrl, side) {
         .replace(/\/\/.*/g, '')
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/,\s*([}\]])/g, '$1');
-      parsed = JSON.parse(cleanedJt);
+        
+      // 💡 控制字元轉義：處理字串內部未轉義的換行/定位符，防止 JSON.parse 拋出控制字元錯誤
+      var inString = false;
+      var escapedJt = '';
+      for (var i = 0; i < cleanedJt.length; i++) {
+        var c = cleanedJt[i];
+        if (c === '"' && (i === 0 || cleanedJt[i-1] !== '\\')) {
+          inString = !inString;
+        }
+        if (inString && c === '\n') {
+          escapedJt += '\\n';
+        } else if (inString && c === '\r') {
+          // 忽略
+        } else if (inString && c === '\t') {
+          escapedJt += '\\t';
+        } else {
+          escapedJt += c;
+        }
+      }
+      
+      parsed = JSON.parse(escapedJt);
       console.log('[Gemini JSON Parsed successfully]:', parsed);
     }
     catch (ex) {
