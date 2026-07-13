@@ -251,7 +251,7 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="fIndustry">業種</label>
-            <select class="form-select" id="fIndustry" name="industry">
+            <select class="form-select" id="fIndustry" name="industry" onchange="toggleCustomIndustry()">
               <option value="">選擇業種</option>
               <option value="it">💻 IT科技</option>
               <option value="finance">💰 金融</option>
@@ -267,6 +267,7 @@
               <option value="beauty">💄 美容</option>
               <option value="other">📋 其他</option>
             </select>
+            <input class="form-input" id="fIndustryCustom" type="text" placeholder="請輸入自訂業種" style="display:none; margin-top:8px;">
           </div>
           <div class="form-group">
             <label class="form-label" for="fRegion">區域</label>
@@ -879,7 +880,15 @@ function applyFilter() {
   var q  = S.query.toLowerCase().trim();
   var ind = S.ind;
   S.filtered = S.cards.filter(function(c) {
-    if (ind !== 'all' && c.industry !== ind) return false;
+    if (ind !== 'all') {
+      var presetKeys = ['it', 'finance', 'medical', 'food', 'legal', 'edu', 'retail', 'real', 'media', 'mfg', 'travel', 'beauty'];
+      if (ind === 'other') {
+        var isPreset = presetKeys.indexOf(c.industry) !== -1;
+        if (isPreset) return false;
+      } else {
+        if (c.industry !== ind) return false;
+      }
+    }
     if (!q) return true;
     var hay = [c.name,c.company,c.title,c.address,c.phone,c.email,c.note,c.bgColor,c.region].join(' ').toLowerCase();
     return hay.includes(q);
@@ -1094,7 +1103,25 @@ function editCard() {
   document.getElementById('fTitle').value    = c.title||'';
   document.getElementById('fEmail').value    = c.email||'';
   document.getElementById('fAddress').value  = c.address||'';
-  document.getElementById('fIndustry').value = c.industry||'';
+  
+  var indVal = c.industry || '';
+  var selectEl = document.getElementById('fIndustry');
+  var customInputEl = document.getElementById('fIndustryCustom');
+  var presetKeys = ['it', 'finance', 'medical', 'food', 'legal', 'edu', 'retail', 'real', 'media', 'mfg', 'travel', 'beauty', 'other'];
+  if (indVal === '') {
+    selectEl.value = '';
+    customInputEl.value = '';
+    customInputEl.style.display = 'none';
+  } else if (presetKeys.indexOf(indVal) !== -1) {
+    selectEl.value = indVal;
+    customInputEl.value = '';
+    customInputEl.style.display = 'none';
+  } else {
+    selectEl.value = 'other';
+    customInputEl.value = indVal;
+    customInputEl.style.display = 'block';
+  }
+
   document.getElementById('fRegion').value   = c.region||'';
   document.getElementById('fBirthday').value = c.birthday||'';
   document.getElementById('fNote').value     = c.note||'';
@@ -1181,6 +1208,12 @@ function onAddPage() {
     S.currentRawText = [];
     clearAllFormSelects();
     resetProfileSelectorAndPills();
+    
+    var customInputEl = document.getElementById('fIndustryCustom');
+    if (customInputEl) {
+      customInputEl.value = '';
+      customInputEl.style.display = 'none';
+    }
     
     var prev = document.getElementById('scanPreview'); prev.style.display='none'; prev.src='';
     var rc = document.getElementById('rotateControl'); if (rc) rc.style.display='none';
@@ -2505,6 +2538,12 @@ async function submitCard(e) {
   var fd = new FormData(document.getElementById('addForm'));
   var card = {};
   fd.forEach(function(v,k){ card[k] = v.trim ? v.trim() : v; });
+  
+  if (card.industry === 'other') {
+    var customVal = document.getElementById('fIndustryCustom').value.trim();
+    card.industry = customVal || 'other';
+  }
+
   if (!card.name) { toast('請輸入姓名', 'err'); return; }
 
   // 儲存累積的多重身分組 (Profiles)
@@ -2847,6 +2886,20 @@ function clearAllFormSelects() {
     if (input) input.style.display = '';
     s.parentNode.removeChild(s);
   });
+}
+
+function toggleCustomIndustry() {
+  var select = document.getElementById('fIndustry');
+  var input = document.getElementById('fIndustryCustom');
+  if (select && input) {
+    if (select.value === 'other') {
+      input.style.display = 'block';
+      input.focus();
+    } else {
+      input.style.display = 'none';
+      input.value = '';
+    }
+  }
 }
 
 function resetProfileSelectorAndPills() {
