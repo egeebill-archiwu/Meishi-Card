@@ -767,24 +767,47 @@ body {
 .nav-btn__icon svg {
   width: 28px;
   height: 28px;
-  stroke: url(#goldGrad);
+  stroke: #3A3F44; /* 預設非作用中：曜石深灰線條 */
   fill: none;
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: stroke var(--t-mid) var(--ease);
 }
 
-/* 設定滑動鈕的物理空心白底加金色描邊質感 */
+/* 填色專用路徑（如鏤空無限符號與中心星芒） */
+.nav-btn__icon svg .fill-path {
+  fill: #3A3F44;
+  stroke: none !important;
+  transition: fill var(--t-mid) var(--ease);
+}
+
+/* 設定滑動鈕的物理空心白底加深灰描邊 */
 .nav-btn__icon svg circle {
   fill: #FFFFFF;
-  stroke: url(#goldGrad);
+  stroke: #3A3F44;
   stroke-width: 1.5;
+  transition: stroke var(--t-mid) var(--ease);
+}
+
+/* ──── 作用中高亮狀態（金屬絲綢金漸層，100% 還原截圖 2） ──── */
+.nav-btn.active .nav-btn__icon svg {
+  stroke: url(#goldGrad); /* 漸層金線條 */
+}
+
+.nav-btn.active .nav-btn__icon svg .fill-path {
+  fill: url(#goldGrad); /* 漸層金星芒與無限符號 */
+}
+
+.nav-btn.active .nav-btn__icon svg circle {
+  stroke: url(#goldGrad); /* 漸層金圓圈 */
+  fill: #FFFFFF;
 }
 
 /* 中央新增按鈕內部的白色加號 SVG */
 .nav-btn--add .nav-btn__icon svg {
   width: 22px;
   height: 22px;
-  stroke: #FFFFFF;
+  stroke: #FFFFFF !important;
   stroke-width: 2.5;
 }
