@@ -2640,8 +2640,19 @@ function renderQR(data) {
     'ADR:;;'+(data.address||'')+';;;;', 'URL:'+(data.website||''),
     'END:VCARD'].join('\n');
   try {
-    new QRCode(box, { text:vcard, width:82, height:82, colorDark:'#0A0A0A', colorLight:'#FFFFFF' });
-  } catch(e) { box.textContent='QR'; }
+    var safeText = unescape(encodeURIComponent(vcard));
+    new QRCode(box, {
+      text: safeText,
+      width: 82,
+      height: 82,
+      colorDark: '#0A0A0A',
+      colorLight: '#FFFFFF',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch(e) {
+    console.error('QR Code Generation Error:', e);
+    box.textContent = 'QR';
+  }
 }
 
 async function saveMyCard(e) {
