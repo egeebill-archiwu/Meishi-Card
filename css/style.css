@@ -321,9 +321,10 @@ body {
   padding: 5px 18px; background: none; border: none; cursor: pointer;
   border-radius: var(--r-md); transition: all var(--t-mid) var(--ease);
 }
-.nav-btn__icon { font-size: 20px; transition: transform var(--t-mid) var(--ease); }
-.nav-btn__label { font-size: 10px; color: var(--text-hint); font-family: inherit; }
-.nav-btn.active .nav-btn__label { color: var(--amber-gold); font-weight: 700; }
+.nav-btn__icon { font-size: 20px; transition: transform var(--t-mid) var(--ease); opacity: 0.65; }
+.nav-btn__label { font-size: 10px; color: var(--amber-gold); font-family: inherit; font-weight: 500; opacity: 0.65; transition: opacity var(--t-mid) var(--ease); }
+.nav-btn.active .nav-btn__label, .nav-btn.active .nav-btn__icon { opacity: 1; }
+.nav-btn.active .nav-btn__label { font-weight: 800; }
 .nav-btn.active .nav-btn__icon { transform: scale(1.1); }
 
 /* 中央新增按鈕 */
@@ -766,11 +767,18 @@ body {
 .nav-btn__icon svg {
   width: 28px;
   height: 28px;
-  stroke: var(--amber-gold);
+  stroke: url(#goldGrad);
   fill: none;
-  stroke-width: 1.5;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* 設定滑動鈕的物理空心白底加金色描邊質感 */
+.nav-btn__icon svg circle {
+  fill: #FFFFFF;
+  stroke: url(#goldGrad);
+  stroke-width: 1.5;
 }
 
 /* 中央新增按鈕內部的白色加號 SVG */
