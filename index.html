@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/components.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.4/qrcode.min.js"></script>
   <style>
     /* CSS 3D 卡片翻轉效果 */
     .flip-card.flipped .flip-card-inner {
@@ -2633,24 +2633,35 @@ function renderPreview(data) {
 function renderQR(data) {
   var box = document.getElementById('qrBox');
   box.innerHTML = '';
-  if (!window.QRCode) { box.textContent='載入中'; return; }
+  if (!window.QRCode || !window.QRCode.toCanvas) { box.textContent='載入中'; return; }
   var vcard = ['BEGIN:VCARD','VERSION:3.0',
     'FN:'+(data.name||''), 'TITLE:'+(data.title||''), 'ORG:'+(data.company||''),
     'TEL:'+(data.phone||''), 'EMAIL:'+(data.email||''),
     'ADR:;;'+(data.address||'')+';;;;', 'URL:'+(data.website||''),
     'END:VCARD'].join('\n');
   try {
-    var safeText = unescape(encodeURIComponent(vcard));
-    new QRCode(box, {
-      text: safeText,
-      width: 82,
-      height: 82,
-      colorDark: '#0A0A0A',
-      colorLight: '#FFFFFF',
-      correctLevel: QRCode.CorrectLevel.M
+    var canvas = document.createElement('canvas');
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    box.appendChild(canvas);
+    
+    window.QRCode.toCanvas(canvas, vcard, {
+      margin: 0,
+      errorCorrectionLevel: 'M',
+      color: {
+        dark: '#0A0A0A',
+        light: '#FFFFFF'
+      }
+    }, function(err) {
+      if (err) {
+        console.error('QR Code Generation Error:', err);
+        box.innerHTML = '';
+        box.textContent = 'QR';
+      }
     });
   } catch(e) {
-    console.error('QR Code Generation Error:', e);
+    console.error('QR Code Exception:', e);
+    box.innerHTML = '';
     box.textContent = 'QR';
   }
 }
