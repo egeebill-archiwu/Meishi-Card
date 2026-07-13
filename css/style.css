@@ -6,7 +6,7 @@
 :root {
   /* ── 核心色盤（大氣暖金與曜石灰） ── */
   --white:        #FFFFFF;
-  --bg-oatmeal:   #F4F4F2; 
+  --bg-oatmeal:   #F6F6F4; 
   --amber-gold:   #D4A353;
   --amber-gold-light: #EBC381;
   --amber-gold-gradient: linear-gradient(135deg, #E5B25D 0%, #C39243 100%);
@@ -39,10 +39,11 @@
   --bg-card:    var(--white);
   --border:     #EAEAEA;
   --border-mid: #DCDCDA;
-  --text-main:  #333333;
-  --text-sub:   #7F8489;
+  --text-main:  #2C2C2C;
+  --text-sub:   #8E8E93;
+  --text-muted: #8E8E93;
   --text-hint:  #A0A4A8;
-  --ambient-shadow: 0 12px 36px rgba(165, 160, 150, 0.18);
+  --ambient-shadow: 0 10px 30px rgba(165, 160, 150, 0.2);
 
   /* ── 業種色標（溫潤優雅） ── */
   --tag-it:      #E3F2FD;
@@ -79,7 +80,7 @@
 html { height: 100%; -webkit-text-size-adjust: 100%; }
 body {
   min-height: 100%;
-  background: #E2E2DF;
+  background: #D1D1D1;
   color: var(--text-main);
   font-family: 'Noto Sans TC', 'Inter', -apple-system, sans-serif;
   font-size: 15px;
@@ -691,21 +692,21 @@ body {
 
 /* ─── 大氣暖金版曜石黑卡與蓮花標誌 ───────────────── */
 .business-card {
-  background: linear-gradient(135deg, #2A2D32 0%, #1A1C1E 100%);
+  background: linear-gradient(135deg, #2D3035 0%, #1C1E22 100%);
   border-radius: 24px;
-  padding: 24px;
+  padding: 28px 24px;
   position: relative;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-  margin: var(--sp-md);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.18);
+  margin: var(--sp-md) var(--sp-md) 22px var(--sp-md);
   overflow: hidden;
 }
 
 .card-left-line {
   position: absolute;
   left: 20px;
-  top: 26px;
-  width: 4px;
-  height: 38px;
+  top: 28px;
+  width: 3px;
+  height: 42px;
   background-color: var(--amber-gold);
   border-radius: 2px;
 }
@@ -715,28 +716,61 @@ body {
 }
 
 .business-card .card-name {
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 26px;
+  font-weight: bold;
   color: #FFFFFF;
   letter-spacing: 1px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   text-align: left;
 }
 
 .business-card .card-title {
   font-size: 14px;
-  color: var(--amber-gold);
-  font-weight: 500;
+  color: var(--text-muted);
   text-align: left;
 }
 
 .card-lotus-icon {
   position: absolute;
   right: 24px;
-  top: 24px;
-  width: 48px;
-  height: 48px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 56px;
+  height: 56px;
   stroke: var(--amber-gold-light);
   fill: none;
+  stroke-width: 1.2;
+}
+
+/* 姓名輸入框的專屬琥珀金外框 */
+.form-input.name-input {
+  border: 1.5px solid var(--amber-gold-light);
+}
+
+/* 底部導覽列 SVG 圖示樣式統一 */
+.nav-btn__icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--t-mid) var(--ease);
+}
+
+.nav-btn__icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: var(--amber-gold);
+  fill: none;
   stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 中央新增按鈕內部的白色加號 SVG */
+.nav-btn--add .nav-btn__icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: #FFFFFF;
+  stroke-width: 2.5;
 }
