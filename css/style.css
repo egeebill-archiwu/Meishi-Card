@@ -4,13 +4,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* ── 核心色盤（輕奢暗黑與絲綢金） ── */
+  /* ── 核心色盤（基於 icon初版.png 原創規範） ── */
+  --bg-gray-white: #F8F9FA;         /* 高級灰白背景 */
+  --surface-white: #FFFFFF;        /* 導航欄白色 */
+  --obsidian-gray: #2D3135;         /* 基礎線條色/曜石灰 */
+  --text-muted: #A0A5AB;           /* 未選取文字色 */
+  --amber-gold-dark: #C59B4E;      /* 金色選取色 - 深 */
+  --amber-gold-light: #E5A93C;     /* 金色選取色 - 淺 */
+  --gold-active-shadow: rgba(197, 155, 78, 0.4); /* 金色選取陰影 */
+
+  /* 舊變數映射，保證全域視覺一致 */
   --white:        #FFFFFF;
-  --bg-oatmeal:   #F3F4F6; 
-  --amber-gold:   #C5A880;
-  --amber-gold-light: #E5BA73;
-  --amber-gold-gradient: linear-gradient(135deg, #E5BA73 0%, #C5A880 100%);
-  --obsidian-dark: #1E2024;
+  --bg-oatmeal:   var(--bg-gray-white); 
+  --amber-gold:   var(--amber-gold-dark);
+  --amber-gold-light: var(--amber-gold-light);
+  --amber-gold-gradient: linear-gradient(135deg, var(--amber-gold-light) 0%, var(--amber-gold-dark) 100%);
+  --obsidian-dark: var(--obsidian-gray);
   
   /* 灰色階梯與陰影精算 */
   --gray-50:      #FAFAFA;
@@ -27,8 +36,8 @@
 
   /* 強調與輔助 */
   --accent:       var(--amber-gold);
-  --accent-light: rgba(197, 168, 128, 0.1);
-  --accent-dark:  #C5A880;
+  --accent-light: rgba(197, 155, 78, 0.1);
+  --accent-dark:  var(--amber-gold-dark);
   --success:  #43A047;
   --warning:  #FB8C00;
   --info:     #1E88E5;
@@ -39,9 +48,9 @@
   --bg-card:    var(--white);
   --border:     #EAEAEA;
   --border-mid: #DCDCDA;
-  --text-main:  #2C2C2C;
-  --text-sub:   #8E8E93;
-  --text-muted: #8E8E93;
+  --text-main:  var(--obsidian-gray);
+  --text-sub:   var(--text-muted);
+  --text-muted: var(--text-muted);
   --text-hint:  #A0A4A8;
   --ambient-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
 
@@ -309,33 +318,76 @@ body {
 .bottom-nav {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
   width: 100%; max-width: 430px;
-  background: rgba(255,255,255,0.97);
-  backdrop-filter: blur(16px);
-  border-top: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-around;
-  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  height: 84px;
+  background-color: var(--surface-white);
+  border-radius: 40px 40px 0 0;
+  box-shadow: 0 -10px 40px rgba(0,0,0,0.03);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
   z-index: 200;
 }
 .nav-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 5px 18px; background: none; border: none; cursor: pointer;
-  border-radius: var(--r-md); transition: all var(--t-mid) var(--ease);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  font-size: 11px;
+  text-align: center;
+  cursor: pointer;
+  width: 68px;
+  transition: all 0.2s;
+  padding: 0;
 }
-.nav-btn__icon { font-size: 20px; transition: transform var(--t-mid) var(--ease); opacity: 0.65; }
-.nav-btn__label { font-size: 10px; color: var(--amber-gold); font-family: inherit; font-weight: 500; opacity: 0.65; transition: opacity var(--t-mid) var(--ease); }
-.nav-btn.active .nav-btn__label, .nav-btn.active .nav-btn__icon { opacity: 1; }
-.nav-btn.active .nav-btn__label { font-weight: 800; }
-.nav-btn.active .nav-btn__icon { transform: scale(1.1); }
+
+.nav-btn.active {
+  color: var(--obsidian-gray);
+}
+
+.nav-btn__label {
+  font-size: 11px;
+  color: inherit;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.nav-btn.active .nav-btn__label {
+  font-weight: 700;
+}
+
+.nav-btn.active .nav-btn__icon {
+  transform: scale(1.1);
+}
 
 /* 中央新增按鈕 */
 .nav-btn--add {
-  width: 52px; height: 52px; margin-top: -18px;
-  background: var(--amber-gold-gradient); border-radius: 50%;
-  padding: 0; box-shadow: 0 6px 16px rgba(212, 163, 83, 0.4);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--amber-gold-light) 0%, var(--amber-gold-dark) 100%) !important;
+  box-shadow: 0 8px 24px var(--gold-active-shadow);
+  color: white !important;
+  font-size: 28px;
+  font-weight: 300;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  top: -16px;
+  cursor: pointer;
+  padding: 0;
+  border: none;
   transition: all var(--t-mid) var(--ease);
 }
-.nav-btn--add .nav-btn__icon { font-size: 22px; color: var(--white); }
-.nav-btn--add:hover { transform: scale(1.06); box-shadow: 0 8px 20px rgba(212, 163, 83, 0.5); }
+
+.nav-btn--add:hover {
+  transform: scale(1.06);
+  box-shadow: 0 10px 28px var(--gold-active-shadow);
+}
 
 /* ─── 表單系統 ──────────────────────────────── */
 .page-header {
@@ -755,60 +807,24 @@ body {
 }
 
 /* 底部導覽列 SVG 圖示樣式統一 */
-.nav-btn__icon {
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform var(--t-mid) var(--ease);
-}
-
-.nav-btn__icon svg {
-  width: 28px;
-  height: 28px;
-  stroke: #3A3F44; /* 預設非作用中：曜石深灰線條 */
+.nav-btn .icon-svg {
+  width: 24px;
+  height: 24px;
+  stroke: var(--text-muted);
   fill: none;
-  stroke-width: 1.1; /* 極細且極緻的線條 */
+  stroke-width: 2.2; /* 建議線粗 */
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: all var(--t-mid) var(--ease);
+  transition: all 0.2s;
 }
 
-/* 填色專用路徑（如中心星芒） */
-.nav-btn__icon svg .star-path {
-  fill: #3A3F44;
-  stroke: none !important;
-  transition: fill var(--t-mid) var(--ease);
+/* 特別指定選取狀態的圖示線條顏色 */
+.nav-btn.active .icon-svg {
+  stroke: var(--amber-gold-dark);
 }
 
-/* 設定滑動鈕的物理空心白底加深灰描邊 */
-.nav-btn__icon svg circle {
-  fill: #FFFFFF;
-  stroke: #3A3F44;
-  stroke-width: 1.1;
-  transition: all var(--t-mid) var(--ease);
-}
-
-/* ──── 作用中高亮狀態（金屬絲綢金漸層，100% 還原截圖 1） ──── */
-.nav-btn.active .nav-btn__icon svg {
-  stroke: url(#goldGrad); /* 漸層金線條 */
-  stroke-width: 1.25; /* 作用中時稍微加粗以突顯高亮與金色光澤 */
-}
-
-.nav-btn.active .nav-btn__icon svg .star-path {
-  fill: url(#goldGrad); /* 漸層金星芒 */
-}
-
-.nav-btn.active .nav-btn__icon svg circle {
-  stroke: url(#goldGrad); /* 漸層金圓圈 */
-  fill: #FFFFFF;
-}
-
-/* 中央新增按鈕內部的白色加號 SVG */
-.nav-btn--add .nav-btn__icon svg {
-  width: 22px;
-  height: 22px;
-  stroke: #FFFFFF !important;
-  stroke-width: 2.5;
+/* 特定圖示微調 */
+.nav-btn.active .icon-svg.star {
+  fill: var(--amber-gold-light); /* AI搜尋選取時中心星星填充 */
+  stroke: var(--amber-gold-light);
 }
