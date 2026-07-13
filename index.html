@@ -449,60 +449,69 @@
     <div class="main-content" style="padding:0; padding-bottom:80px">
 
       <!-- 名片預覽 -->
-      <div class="mycard-preview">
-        <div class="mycard-name"  id="mcPreviewName">您的姓名</div>
-        <div class="mycard-title" id="mcPreviewTitle">職稱 · 公司</div>
-        <div class="mycard-line"></div>
-        <div class="mycard-contact" id="mcPreviewContact">填寫下方表單即可更新</div>
-        <div class="mycard-emblem">🪪</div>
-      </div>
-
-      <!-- QR Code -->
-      <div class="qr-row">
-        <div class="qr-box" id="qrBox">填寫後生成</div>
-        <div class="qr-info">
-          <div class="qr-info__title">我的 QR Code 名片</div>
-          <div class="qr-info__sub">對方掃描即可儲存您的聯絡資訊</div>
-          <button class="btn btn--outline btn--sm" onclick="shareMyCard()">📤 分享</button>
+      <div class="business-card">
+        <div class="card-left-line"></div>
+        <div class="card-info">
+          <div class="card-name" id="mcPreviewName">您的姓名</div>
+          <div class="card-title" id="mcPreviewTitle">職稱 · 公司</div>
+          <div class="card-contact" id="mcPreviewContact" style="font-size:12px; color:var(--text-sub); opacity:0.8; margin-top:14px; white-space:pre-line; line-height:1.8;">填寫下方表單即可更新</div>
         </div>
+        <svg class="card-lotus-icon" viewBox="0 0 24 24">
+          <path d="M12 21c-2-2.5-5-4-5-7.5 0-2 1.5-3.5 3.5-3.5.8 0 1.5.3 1.5.3s.7-.3 1.5-.3c2 0 3.5 1.5 3.5 3.5 0 3.5-3 5-5 7.5z"/>
+          <path d="M12 21c-4-1-7-3.5-7-7 0-3 2-5 5-5 .5 0 1 .1 1 .1s.5-.1 1-.1c3 0 5 2 5 5 0 3.5-3 6-7 7z" opacity="0.7"/>
+          <path d="M12 21c2.5-3.5 2.5-6.5.5-8.5M12 21c-2.5-3.5-2.5-6.5-.5-8.5" opacity="0.5"/>
+        </svg>
       </div>
 
-      <!-- 表單 -->
-      <div class="form-wrap">
+      <!-- 表單與 QR 複合佈局 -->
+      <div class="form-wrap" style="padding-top:0;">
         <form id="myCardForm" onsubmit="saveMyCard(event)">
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">姓名</label>
-              <input class="form-input" id="mcName" name="name" placeholder="王小明">
+          <div class="layout-row" style="display:flex; gap:16px; margin-bottom:16px; align-items:stretch;">
+            <!-- 左側漂浮 QR 卡片 -->
+            <div class="qr-card" style="background-color: var(--white); border-radius:20px; padding:16px; width:48%; box-shadow: var(--ambient-shadow); display:flex; flex-direction:column; align-items:center; justify-content:center; border: 1px solid var(--border);">
+              <div class="qr-box" id="qrBox" style="width:100%; aspect-ratio:1; background-color:#FFF; border:none; display:flex; align-items:center; justify-content:center; margin-bottom:10px; padding:0;">填寫後生成</div>
+              <div class="qr-text" style="font-size:11px; font-weight:bold; color:var(--text-main); margin-bottom:8px; text-align:center; white-space:nowrap;">My QR Code 名片</div>
+              <button type="button" class="btn btn--outline btn--sm" onclick="shareMyCard()" style="background-color:var(--obsidian-dark); color:#FFFFFF; border:none; padding:6px 12px; border-radius:12px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:4px; font-weight:600; box-shadow:0 2px 6px rgba(0,0,0,0.15);">
+                📤 分享
+              </button>
             </div>
-            <div class="form-group">
-              <label class="form-label">職稱</label>
-              <input class="form-input" id="mcTitle" name="title" placeholder="業務經理">
+
+            <!-- 右側姓名與職稱表單區 -->
+            <div class="form-area" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; gap:12px;">
+              <div class="form-group" style="margin-bottom:0; flex:1; display:flex; flex-direction:column; justify-content:center;">
+                <label class="form-label" style="font-weight:bold; color:var(--text-main); margin-bottom:6px;">姓名</label>
+                <input class="form-input" id="mcName" name="name" placeholder="王小明" style="margin-top:auto;">
+              </div>
+              <div class="form-group" style="margin-bottom:0; flex:1; display:flex; flex-direction:column; justify-content:center;">
+                <label class="form-label" style="font-weight:bold; color:var(--text-main); margin-bottom:6px;">職稱</label>
+                <input class="form-input" id="mcTitle" name="title" placeholder="業務經理" style="margin-top:auto;">
+              </div>
             </div>
           </div>
+
           <div class="form-group">
-            <label class="form-label">公司</label>
+            <label class="form-label" style="font-weight:bold; color:var(--text-main);">公司</label>
             <input class="form-input" id="mcCompany" name="company" placeholder="善緣企業有限公司">
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">電話</label>
+              <label class="form-label" style="font-weight:bold; color:var(--text-main);">電話</label>
               <input class="form-input" id="mcPhone" name="phone" type="tel" placeholder="0912-345-678">
             </div>
             <div class="form-group">
-              <label class="form-label">Email</label>
+              <label class="form-label" style="font-weight:bold; color:var(--text-main);">Email</label>
               <input class="form-input" id="mcEmail" name="email" type="email" placeholder="me@co.com">
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">地址</label>
+            <label class="form-label" style="font-weight:bold; color:var(--text-main);">地址</label>
             <input class="form-input" id="mcAddress" name="address" placeholder="台北市…">
           </div>
           <div class="form-group">
-            <label class="form-label">網站</label>
+            <label class="form-label" style="font-weight:bold; color:var(--text-main);">網站</label>
             <input class="form-input" id="mcWebsite" name="website" type="url" placeholder="https://www.co.com">
           </div>
-          <button class="btn btn--primary btn--block" type="submit">更新數位名片</button>
+          <button class="btn btn--primary btn--block" type="submit" style="margin-bottom:90px; height:48px; background:var(--amber-gold-gradient); color:#FFFFFF; border:none; border-radius:14px; font-size:15px; font-weight:bold; letter-spacing:1px; box-shadow:0 6px 20px rgba(212, 163, 83, 0.3);">更新數位名片</button>
         </form>
       </div>
 

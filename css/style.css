@@ -4,8 +4,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* ── 核心色盤（極簡黑白） ── */
+  /* ── 核心色盤（大氣暖金與曜石灰） ── */
   --white:        #FFFFFF;
+  --bg-oatmeal:   #F4F4F2; 
+  --amber-gold:   #D4A353;
+  --amber-gold-light: #EBC381;
+  --amber-gold-gradient: linear-gradient(135deg, #E5B25D 0%, #C39243 100%);
+  --obsidian-dark: #232629;
+  
+  /* 灰色階梯與陰影精算 */
   --gray-50:      #FAFAFA;
   --gray-100:     #F5F5F5;
   --gray-200:     #EEEEEE;
@@ -18,27 +25,26 @@
   --gray-900:     #212121;
   --black:        #0A0A0A;
 
-  /* ── 強調色（單一紅點，極簡畫龍點睛） ── */
-  --accent:       #E53935;
-  --accent-light: #FFEBEE;
-  --accent-dark:  #B71C1C;
-
-  /* ── 功能色 ── */
+  /* 強調與輔助 */
+  --accent:       var(--amber-gold);
+  --accent-light: rgba(212, 163, 83, 0.1);
+  --accent-dark:  #C39243;
   --success:  #43A047;
   --warning:  #FB8C00;
   --info:     #1E88E5;
 
-  /* ── 語意色 ── */
-  --bg:         var(--white);
-  --bg-sub:     var(--gray-50);
+  /* 語意色 */
+  --bg:         var(--bg-oatmeal);
+  --bg-sub:     #EBEBE8;
   --bg-card:    var(--white);
-  --border:     var(--gray-200);
-  --border-mid: var(--gray-300);
-  --text-main:  var(--gray-900);
-  --text-sub:   var(--gray-600);
-  --text-hint:  var(--gray-400);
+  --border:     #EAEAEA;
+  --border-mid: #DCDCDA;
+  --text-main:  #333333;
+  --text-sub:   #7F8489;
+  --text-hint:  #A0A4A8;
+  --ambient-shadow: 0 12px 36px rgba(165, 160, 150, 0.18);
 
-  /* ── 業種色標（低飽和） ── */
+  /* ── 業種色標（溫潤優雅） ── */
   --tag-it:      #E3F2FD;
   --tag-finance: #E8F5E9;
   --tag-medical: #FCE4EC;
@@ -73,7 +79,7 @@
 html { height: 100%; -webkit-text-size-adjust: 100%; }
 body {
   min-height: 100%;
-  background: var(--gray-100);
+  background: #E2E2DF;
   color: var(--text-main);
   font-family: 'Noto Sans TC', 'Inter', -apple-system, sans-serif;
   font-size: 15px;
@@ -145,15 +151,16 @@ body {
 }
 .search-input {
   width: 100%; padding: 9px 12px 9px 36px;
-  background: var(--gray-100); border: 1.5px solid transparent;
+  background: var(--white); border: 1.5px solid transparent;
   border-radius: var(--r-full); color: var(--text-main);
   font-size: 14px; font-family: inherit; outline: none;
+  box-shadow: var(--ambient-shadow);
   transition: all var(--t-mid) var(--ease);
 }
 .search-input:focus {
   background: var(--white);
-  border-color: var(--gray-900);
-  box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+  border-color: var(--amber-gold);
+  box-shadow: 0 0 0 3px rgba(212, 163, 83, 0.15);
 }
 .search-input::placeholder { color: var(--text-hint); }
 
@@ -184,7 +191,7 @@ body {
 }
 .chip:hover { background: var(--gray-200); color: var(--text-main); }
 .chip.active {
-  background: var(--gray-900); border-color: var(--gray-900);
+  background: var(--amber-gold-gradient); border-color: transparent;
   color: var(--white);
 }
 
@@ -226,18 +233,19 @@ body {
 
 .biz-card {
   background: var(--white);
-  border: 1px solid var(--border);
+  border: 1.5px solid transparent;
   border-radius: var(--r-lg);
   padding: var(--sp-md);
   display: flex; align-items: center; gap: var(--sp-md);
   cursor: pointer; margin-bottom: var(--sp-sm);
+  box-shadow: var(--ambient-shadow);
   transition: all var(--t-mid) var(--ease);
   position: relative; overflow: hidden;
 }
 .biz-card:hover {
-  border-color: var(--gray-900);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  border-color: var(--amber-gold);
+  box-shadow: 0 16px 40px rgba(165, 160, 150, 0.25);
+  transform: translateY(-2px);
 }
 .biz-card:active { transform: translateY(0); box-shadow: var(--shadow-sm); }
 
@@ -245,9 +253,10 @@ body {
 .card-avatar {
   width: 42px; height: 42px; flex-shrink: 0;
   border-radius: var(--r-md);
-  background: var(--gray-900);
+  background: var(--amber-gold-gradient);
   display: flex; align-items: center; justify-content: center;
   font-size: 16px; font-weight: 700; color: var(--white);
+  box-shadow: var(--shadow-sm);
 }
 .card-avatar--color-0 { background: #212121; }
 .card-avatar--color-1 { background: #37474F; }
@@ -313,18 +322,18 @@ body {
 }
 .nav-btn__icon { font-size: 20px; transition: transform var(--t-mid) var(--ease); }
 .nav-btn__label { font-size: 10px; color: var(--text-hint); font-family: inherit; }
-.nav-btn.active .nav-btn__label { color: var(--gray-900); font-weight: 700; }
+.nav-btn.active .nav-btn__label { color: var(--amber-gold); font-weight: 700; }
 .nav-btn.active .nav-btn__icon { transform: scale(1.1); }
 
 /* 中央新增按鈕 */
 .nav-btn--add {
   width: 52px; height: 52px; margin-top: -18px;
-  background: var(--gray-900); border-radius: 50%;
-  padding: 0; box-shadow: var(--shadow-lg);
+  background: var(--amber-gold-gradient); border-radius: 50%;
+  padding: 0; box-shadow: 0 6px 16px rgba(212, 163, 83, 0.4);
   transition: all var(--t-mid) var(--ease);
 }
 .nav-btn--add .nav-btn__icon { font-size: 22px; color: var(--white); }
-.nav-btn--add:hover { background: var(--black); transform: scale(1.06); }
+.nav-btn--add:hover { transform: scale(1.06); box-shadow: 0 8px 20px rgba(212, 163, 83, 0.5); }
 
 /* ─── 表單系統 ──────────────────────────────── */
 .page-header {
@@ -346,19 +355,20 @@ body {
 .form-group { margin-bottom: var(--sp-md); }
 .form-label {
   display: block; font-size: 12px; font-weight: 600;
-  color: var(--text-hint); text-transform: uppercase;
+  color: var(--text-main); text-transform: uppercase;
   letter-spacing: 0.7px; margin-bottom: 6px;
 }
 .form-input, .form-select, .form-textarea {
   width: 100%; padding: 11px 13px;
-  background: var(--gray-50); border: 1.5px solid var(--border);
+  background: var(--white); border: 1.5px solid transparent;
   border-radius: var(--r-md); color: var(--text-main);
   font-size: 15px; font-family: inherit; outline: none;
+  box-shadow: var(--ambient-shadow);
   transition: all var(--t-mid) var(--ease); appearance: none;
 }
 .form-input:focus, .form-select:focus, .form-textarea:focus {
-  background: var(--white); border-color: var(--gray-900);
-  box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+  background: var(--white); border-color: var(--amber-gold);
+  box-shadow: 0 0 0 3px rgba(212, 163, 83, 0.15);
 }
 .form-input::placeholder, .form-textarea::placeholder { color: var(--text-hint); }
 .form-select option { background: var(--white); }
@@ -374,12 +384,13 @@ body {
   transition: all var(--t-mid) var(--ease);
 }
 .btn--primary {
-  background: var(--gray-900); color: var(--white);
-  box-shadow: var(--shadow-sm);
+  background: var(--amber-gold-gradient); color: var(--white);
+  box-shadow: 0 6px 20px rgba(212, 163, 83, 0.3);
 }
 .btn--primary:hover {
-  background: var(--black);
-  box-shadow: var(--shadow-md); transform: translateY(-1px);
+  background: var(--amber-gold-gradient);
+  opacity: 0.95;
+  box-shadow: 0 8px 24px rgba(212, 163, 83, 0.45); transform: translateY(-1px);
 }
 .btn--primary:active { transform: none; box-shadow: var(--shadow-sm); }
 .btn--outline {
@@ -676,4 +687,56 @@ body {
 @media (min-width: 430px) {
   #app { border-radius: 20px; margin: 20px auto; min-height: calc(100dvh - 40px); }
   .bottom-nav { border-radius: 0 0 20px 20px; }
+}
+
+/* ─── 大氣暖金版曜石黑卡與蓮花標誌 ───────────────── */
+.business-card {
+  background: linear-gradient(135deg, #2A2D32 0%, #1A1C1E 100%);
+  border-radius: 24px;
+  padding: 24px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  margin: var(--sp-md);
+  overflow: hidden;
+}
+
+.card-left-line {
+  position: absolute;
+  left: 20px;
+  top: 26px;
+  width: 4px;
+  height: 38px;
+  background-color: var(--amber-gold);
+  border-radius: 2px;
+}
+
+.business-card .card-info {
+  padding-left: 12px;
+}
+
+.business-card .card-name {
+  font-size: 24px;
+  font-weight: 600;
+  color: #FFFFFF;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+.business-card .card-title {
+  font-size: 14px;
+  color: var(--amber-gold);
+  font-weight: 500;
+  text-align: left;
+}
+
+.card-lotus-icon {
+  position: absolute;
+  right: 24px;
+  top: 24px;
+  width: 48px;
+  height: 48px;
+  stroke: var(--amber-gold-light);
+  fill: none;
+  stroke-width: 1.5;
 }
