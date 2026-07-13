@@ -4,13 +4,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* ── 核心色盤（大氣暖金與曜石灰） ── */
+  /* ── 核心色盤（輕奢暗黑與絲綢金） ── */
   --white:        #FFFFFF;
-  --bg-oatmeal:   #F6F6F4; 
-  --amber-gold:   #D4A353;
-  --amber-gold-light: #EBC381;
-  --amber-gold-gradient: linear-gradient(135deg, #E5B25D 0%, #C39243 100%);
-  --obsidian-dark: #232629;
+  --bg-oatmeal:   #F3F4F6; 
+  --amber-gold:   #C5A880;
+  --amber-gold-light: #E5BA73;
+  --amber-gold-gradient: linear-gradient(135deg, #E5BA73 0%, #C5A880 100%);
+  --obsidian-dark: #1E2024;
   
   /* 灰色階梯與陰影精算 */
   --gray-50:      #FAFAFA;
@@ -27,8 +27,8 @@
 
   /* 強調與輔助 */
   --accent:       var(--amber-gold);
-  --accent-light: rgba(212, 163, 83, 0.1);
-  --accent-dark:  #C39243;
+  --accent-light: rgba(197, 168, 128, 0.1);
+  --accent-dark:  #C5A880;
   --success:  #43A047;
   --warning:  #FB8C00;
   --info:     #1E88E5;
@@ -43,7 +43,7 @@
   --text-sub:   #8E8E93;
   --text-muted: #8E8E93;
   --text-hint:  #A0A4A8;
-  --ambient-shadow: 0 10px 30px rgba(165, 160, 150, 0.2);
+  --ambient-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
 
   /* ── 業種色標（溫潤優雅） ── */
   --tag-it:      #E3F2FD;
@@ -691,9 +691,10 @@ body {
 }
 
 /* ─── 大氣暖金版曜石黑卡與蓮花標誌 ───────────────── */
+/* ─── 大氣暖金版曜石黑卡與蓮花標誌 ───────────────── */
 .business-card {
-  background: linear-gradient(135deg, #2D3035 0%, #1C1E22 100%);
-  border-radius: 24px;
+  background: linear-gradient(135deg, #1A1C1E 0%, #2C2F33 100%);
+  border-radius: 16px;
   padding: 28px 24px;
   position: relative;
   box-shadow: 0 12px 24px rgba(0,0,0,0.18);
@@ -707,7 +708,7 @@ body {
   top: 28px;
   width: 3px;
   height: 42px;
-  background-color: var(--amber-gold);
+  background: var(--amber-gold-gradient);
   border-radius: 2px;
 }
 
@@ -718,7 +719,7 @@ body {
 .business-card .card-name {
   font-size: 26px;
   font-weight: bold;
-  color: #FFFFFF;
+  color: var(--amber-gold-light);
   letter-spacing: 1px;
   margin-bottom: 4px;
   text-align: left;
@@ -742,9 +743,14 @@ body {
   stroke-width: 1.2;
 }
 
-/* 姓名輸入框的專屬琥珀金外框 */
+/* 姓名輸入框的專屬黃金外框與外發光效果 */
 .form-input.name-input {
   border: 1.5px solid var(--amber-gold-light);
+  box-shadow: 0 0 8px rgba(229, 186, 115, 0.25);
+}
+.form-input.name-input:focus {
+  border-color: var(--amber-gold);
+  box-shadow: 0 0 12px rgba(229, 186, 115, 0.45);
 }
 
 /* 底部導覽列 SVG 圖示樣式統一 */
