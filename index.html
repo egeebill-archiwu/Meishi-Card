@@ -646,7 +646,10 @@
     <button class="nav-btn active" data-page="home">
       <span class="nav-btn__icon">
         <svg class="tab-icon" viewBox="0 0 24 24" fill="none">
-          <path class="fill-path" d="M17 9c-1.6 0-3 1-4 2.3-1-1.3-2.4-2.3-4-2.3-2.8 0-5 2.2-5 5s2.2 5 5 5c1.6 0 3-1 4-2.3 1 1.3 2.4 2.3 4 2.3 2.8 0 5-2.2 5-5s-2.2-5-5-5zm-8 7.5c-1.4 0-2.5-1.1-2.5-2.5s1.1-2.5 2.5-2.5 2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5zm8 0c-1.4 0-2.5-1.1-2.5-2.5s1.1-2.5 2.5-2.5 2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5z" />
+          <!-- 外圈無限軌跡 -->
+          <path d="M12 12c-1.8-2.5-4.2-4-6.5-4S1 10.2 1 13s2.2 5 4.5 5 4.7-1.5 6.5-4c1.8 2.5 4.2 4 6.5 4s4.5-2.2 4.5-5-2.2-5-4.5-5-4.7 1.5-6.5 4z" />
+          <!-- 內圈無限軌跡 -->
+          <path d="M12 12c-1.4-2-3.2-3.2-5-3.2S3.8 10.4 3.8 13s1.4 3.8 3.2 3.8 3.6-1.2 5-3.2c1.4 2 3.2 3.2 5 3.2s3.2-1.6 3.2-3.8-1.4-3.8-3.2-3.8-3.6 1.2-5 3.2z" />
         </svg>
       </span>
       <span class="nav-btn__label">名片庫</span>
@@ -654,8 +657,12 @@
     <button class="nav-btn" data-page="ai">
       <span class="nav-btn__icon">
         <svg class="tab-icon" viewBox="0 0 24 24" fill="none">
-          <path d="M4.5 14.5a8 8 0 0 1 16 0M7.5 14.5a5 5 0 0 1 10 0M10.5 14.5a2 2 0 0 1 4 0" stroke-linecap="round" />
-          <path class="fill-path" d="M12 9.5c0 1 .5 1.2 1.2 1.2-.7 0-1.2.2-1.2 1.2 0-1-.5-1.2-1.2-1.2.7 0 1.2-.2 1.2-1.2z" />
+          <!-- 同心圓雷達（右上角開口） -->
+          <path d="M 4.5,14.5 A 8,8 0 1,1 17.6,8.3" stroke-linecap="round" />
+          <path d="M 6.8,14.5 A 5.5,5.5 0 1,1 15.8,10.1" stroke-linecap="round" />
+          <path d="M 9.2,14.5 A 3,3 0 1,1 14.1,11.9" stroke-linecap="round" />
+          <!-- 中心星芒 -->
+          <path class="star-path" d="M12 11c0 .8.4 1.2 1.2 1.2-.8 0-1.2.4-1.2 1.2 0-.8-.4-1.2-1.2-1.2.8 0 1.2-.4 1.2-1.2z" />
         </svg>
       </span>
       <span class="nav-btn__label">AI 搜尋</span>
@@ -671,11 +678,11 @@
     <button class="nav-btn" data-page="mycard">
       <span class="nav-btn__icon">
         <svg class="tab-icon" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="5" width="18" height="14" rx="3" />
-          <circle cx="8" cy="10.5" r="2.2" />
-          <path d="M5 16a3 3 0 0 1 6 0" />
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <circle cx="8" cy="11.5" r="2" />
+          <path d="M4.5 16.5c0-1.5 1.5-2.5 3.5-2.5s3.5 1 3.5 2.5" />
           <line x1="14" y1="10" x2="19" y2="10" />
-          <line x1="14" y1="14" x2="18" y2="14" />
+          <line x1="14" y1="13.5" x2="18" y2="13.5" />
         </svg>
       </span>
       <span class="nav-btn__label">我的名片</span>

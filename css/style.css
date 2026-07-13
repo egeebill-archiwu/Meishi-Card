@@ -769,14 +769,14 @@ body {
   height: 28px;
   stroke: #3A3F44; /* 預設非作用中：曜石深灰線條 */
   fill: none;
-  stroke-width: 1.8;
+  stroke-width: 1.1; /* 極細且極緻的線條 */
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: stroke var(--t-mid) var(--ease);
+  transition: all var(--t-mid) var(--ease);
 }
 
-/* 填色專用路徑（如鏤空無限符號與中心星芒） */
-.nav-btn__icon svg .fill-path {
+/* 填色專用路徑（如中心星芒） */
+.nav-btn__icon svg .star-path {
   fill: #3A3F44;
   stroke: none !important;
   transition: fill var(--t-mid) var(--ease);
@@ -786,17 +786,18 @@ body {
 .nav-btn__icon svg circle {
   fill: #FFFFFF;
   stroke: #3A3F44;
-  stroke-width: 1.5;
-  transition: stroke var(--t-mid) var(--ease);
+  stroke-width: 1.1;
+  transition: all var(--t-mid) var(--ease);
 }
 
-/* ──── 作用中高亮狀態（金屬絲綢金漸層，100% 還原截圖 2） ──── */
+/* ──── 作用中高亮狀態（金屬絲綢金漸層，100% 還原截圖 1） ──── */
 .nav-btn.active .nav-btn__icon svg {
   stroke: url(#goldGrad); /* 漸層金線條 */
+  stroke-width: 1.25; /* 作用中時稍微加粗以突顯高亮與金色光澤 */
 }
 
-.nav-btn.active .nav-btn__icon svg .fill-path {
-  fill: url(#goldGrad); /* 漸層金星芒與無限符號 */
+.nav-btn.active .nav-btn__icon svg .star-path {
+  fill: url(#goldGrad); /* 漸層金星芒 */
 }
 
 .nav-btn.active .nav-btn__icon svg circle {
