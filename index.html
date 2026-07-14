@@ -2985,6 +2985,51 @@ async function processOcr(compUrl, side) {
   }
 }
 
+async function rotateConfirmPhoto(degrees) {
+  var imgEl = document.getElementById('confirmPreviewImg');
+  if (!imgEl || !imgEl.src || imgEl.src.indexOf('data:image') === -1) return;
+  
+  toast('🔄 正在旋轉名片，請稍候…', 'info');
+  var diag = document.getElementById('confirmDiagnosticInfo');
+  if (diag) {
+    diag.textContent = '⏳ 正在旋轉名片並重新執行 AI 辨識…';
+  }
+  
+  var img = new Image();
+  img.onload = async function() {
+    try {
+      var canvas = document.createElement('canvas');
+      var ctx = canvas.getContext('2d');
+      
+      if (Math.abs(degrees) === 90) {
+        canvas.width = img.height;
+        canvas.height = img.width;
+      } else {
+        canvas.width = img.width;
+        canvas.height = img.height;
+      }
+      
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(degrees * Math.PI / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      
+      var rotatedBase64 = canvas.toDataURL('image/jpeg', 0.92);
+      imgEl.src = rotatedBase64;
+      autoWarpedBase64 = rotatedBase64; // 更新暫存圖的變數
+      
+      // 重新跑 OCR
+      await processOcr(rotatedBase64, activeSide);
+    } catch(err) {
+      console.error('Rotate OCR failed:', err);
+      toast('重新辨識失敗：' + err.message, 'err');
+      if (diag) {
+        diag.textContent = '❌ 重新辨識失敗：' + err.message;
+      }
+    }
+  };
+  img.src = imgEl.src;
+}
+
 function rotatePreview(degrees, side) {
   var prevId = side === 'front' ? 'scanPreview' : 'scanPreviewBack';
   var prev = document.getElementById(prevId);
@@ -3758,7 +3803,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     <div id="confirmDiagnosticInfo" style="font-size:11px; color:#FFD54F; font-family:monospace; text-align:center; padding:0 10px; width:90%; word-break:break-all;">🔍 AI 定位點: 偵測中...</div>
     
     <div style="font-size:13px; color:#A0A0A0; text-align:center; padding:0 20px; line-height:1.4;">
-      已為您自動切除背景、完成 3D 擺平！<br>點選保留以儲存名片並自動解析歸檔。
+      已為您自動切除背景、完成 3D 擺平！<br>若方向歪斜（如直式名片橫拍），請利用下方按鈕旋轉翻正，以利 AI 辨識。
+    </div>
+    
+    <!-- 旋轉控制按鈕 -->
+    <div style="display:flex; justify-content:center; gap:15px; width:90%; margin-bottom:5px;">
+      <button type="button" onclick="rotateConfirmPhoto(-90)" style="flex:1; padding: 12px 0; font-size: 13px; font-weight: 600; border-radius: 20px; background: #2A2A2A; border: 1px solid #444; color: #fff; cursor:pointer; transition:background 0.2s;">🔄 向左旋轉</button>
+      <button type="button" onclick="rotateConfirmPhoto(90)" style="flex:1; padding: 12px 0; font-size: 13px; font-weight: 600; border-radius: 20px; background: #2A2A2A; border: 1px solid #444; color: #fff; cursor:pointer; transition:background 0.2s;">🔄 向右旋轉</button>
     </div>
     
     <!-- 重新拍攝與保留存檔大按鈕 -->
