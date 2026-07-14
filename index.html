@@ -1687,6 +1687,8 @@ function onAddPage() {
   if (!S.editId) {
     document.getElementById('addPageTitle').textContent = '新增名片';
     document.getElementById('addForm').reset();
+    var fEditId = document.getElementById('fEditId');
+    if (fEditId) fEditId.value = '';
     S.currentProfiles = [];
     S.currentRawText = [];
     clearAllFormSelects();
@@ -3055,6 +3057,8 @@ async function submitCard(e) {
       toast('名片已新增 🎉', 'ok');
     }
     S.editId = null;
+    var fEditId = document.getElementById('fEditId');
+    if (fEditId) fEditId.value = '';
     S.currentProfiles = [];
     S.currentRawText = [];
     clearAllFormSelects();
