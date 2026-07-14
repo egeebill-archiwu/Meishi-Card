@@ -745,19 +745,64 @@ var db = null;
 
 function openDB() {
   return new Promise(function(res, rej) {
-    var req = indexedDB.open('ShanyuanDB', 3);
-    req.onupgradeneeded = function(e) {
-      var d = e.target.result;
-      if (!d.objectStoreNames.contains('cards')) {
-        var s = d.createObjectStore('cards', { keyPath:'id', autoIncrement:true });
-        ['name','company','industry','region','birthday'].forEach(function(k){ s.createIndex(k,k); });
+    var resolved = false;
+    var timer = setTimeout(function() {
+      if (!resolved) {
+        resolved = true;
+        console.warn("IndexedDB open timed out after 1.5s, falling back to memory");
+        rej(new Error("Timeout opening database"));
       }
-      if (!d.objectStoreNames.contains('meta')) {
-        d.createObjectStore('meta', { keyPath:'key' });
+    }, 1500);
+
+    try {
+      var req = indexedDB.open('ShanyuanDB', 3);
+      req.onblocked = function(e) {
+        console.warn("IndexedDB open blocked by another tab or connection");
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          rej(new Error("Database blocked"));
+        }
+      };
+      req.onupgradeneeded = function(e) {
+        var d = e.target.result;
+        if (!d.objectStoreNames.contains('cards')) {
+          var s = d.createObjectStore('cards', { keyPath:'id', autoIncrement:true });
+          ['name','company','industry','region','birthday'].forEach(function(k){ s.createIndex(k,k); });
+        }
+        if (!d.objectStoreNames.contains('meta')) {
+          d.createObjectStore('meta', { keyPath:'key' });
+        }
+      };
+      req.onsuccess = function(e) {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          db = e.target.result;
+          
+          // 當其他分頁/PWA 請求升級資料庫時，自動關閉本連線以防阻擋對方
+          db.onversionchange = function() {
+            db.close();
+            console.log("Database closed due to upgrade request in another tab");
+          };
+          
+          res(db);
+        }
+      };
+      req.onerror = function(e) {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          rej(e.target.error || new Error("Unknown DB error"));
+        }
+      };
+    } catch(err) {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        rej(err);
       }
-    };
-    req.onsuccess = function(e) { db = e.target.result; res(db); };
-    req.onerror   = function(e) { rej(e.target.error); };
+    }
   });
 }
 
