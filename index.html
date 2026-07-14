@@ -537,6 +537,18 @@
     <div class="main-content">
 
       <div class="setting-group">
+        <div class="setting-group__title">分類管理</div>
+        <div class="setting-item" onclick="goTo('categories')">
+          <div class="setting-item__icon">🏷️</div>
+          <div class="setting-item__body">
+            <div class="setting-item__name">業種與分類管理</div>
+            <div class="setting-item__desc">自訂分類順序、增減、改名</div>
+          </div>
+          <span class="setting-item__arr">›</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
         <div class="setting-group__title">資料匯出</div>
         <div class="setting-item" onclick="doExportCSV()">
           <div class="setting-item__icon">📊</div>
@@ -939,7 +951,6 @@ function renderFilterRow() {
   S.categories.forEach(function(cat) {
     html += '<button class="chip' + (S.ind === cat.id ? ' active' : '') + '" data-ind="' + cat.id + '">' + esc(cat.name) + '</button>';
   });
-  html += '<button class="chip chip--manage" onclick="goTo(\'categories\')" style="background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.15);color:var(--text-sub);">⚙️ 管理</button>';
   row.innerHTML = html;
 }
 
@@ -3627,14 +3638,25 @@ document.addEventListener('DOMContentLoaded', async function() {
   });
 
   // 篩選 chips
-  document.getElementById('filterRow').addEventListener('click', function(e) {
-    var btn = e.target.closest('.chip');
-    if (!btn || btn.classList.contains('chip--manage')) return;
-    document.querySelectorAll('#filterRow .chip').forEach(function(b){ b.classList.remove('active'); });
-    btn.classList.add('active');
-    S.ind = btn.dataset.ind;
-    applyFilter();
-  });
+  var filterRowEl = document.getElementById('filterRow');
+  if (filterRowEl) {
+    filterRowEl.addEventListener('click', function(e) {
+      var btn = e.target.closest('.chip');
+      if (!btn) return;
+      document.querySelectorAll('#filterRow .chip').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      S.ind = btn.dataset.ind;
+      applyFilter();
+    });
+
+    // 讓電腦版滑鼠滾輪可以橫向滾動分類晶片列
+    filterRowEl.addEventListener('wheel', function(e) {
+      if (e.deltaY !== 0) {
+        filterRowEl.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    }, { passive: false });
+  }
 
   // 搜尋
   var st;
