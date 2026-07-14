@@ -854,3 +854,96 @@ body::before {
   fill: var(--amber-gold-light); /* AI搜尋選取時中心星星填充 */
   stroke: var(--amber-gold-light);
 }
+
+/* ─── 分類管理頁面 ───────────────────────────── */
+.categories-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.category-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-md);
+  padding: var(--sp-md);
+  background: rgba(30, 41, 59, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--r-lg);
+  color: var(--text-main);
+  transition: all var(--t-fast) var(--ease);
+  user-select: none;
+}
+
+.category-item.dragging {
+  opacity: 0.4;
+  border: 1.5px dashed var(--amber-gold-light);
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.category-item__handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 20px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.category-item__handle:active {
+  cursor: grabbing;
+}
+
+.category-item__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.category-item__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.category-item__count {
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+.category-item__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.category-item__btn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px var(--sp-sm);
+  border-radius: var(--r-md);
+  transition: all var(--t-fast) var(--ease);
+}
+
+.category-item__btn--rename {
+  color: var(--text-sub);
+}
+
+.category-item__btn--rename:hover {
+  color: var(--amber-gold-light);
+}
+
+.category-item__btn--delete {
+  color: #f87171;
+}
+
+.category-item__btn--delete:hover {
+  background: rgba(248, 113, 113, 0.1);
+}

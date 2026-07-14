@@ -640,6 +640,29 @@
   </div>
 
   <!-- ════════════════════════════════════════
+       🏷️ 分類管理頁 (高度還原截圖 1)
+  ════════════════════════════════════════ -->
+  <div class="page" id="page-categories">
+    <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; padding:var(--sp-md); border-bottom:1px solid var(--border);">
+      <button class="back-btn" onclick="goTo('home')" style="background:none; border:none; color:var(--text-main); font-size:16px; cursor:pointer; display:flex; align-items:center; gap:4px; font-weight:bold;">
+        &lt; 名片
+      </button>
+      <div class="page-title" style="font-size:18px; font-weight:700; color:var(--text-main);">分類</div>
+      <button class="btn btn--primary btn--sm" onclick="addCategory()" style="padding:6px 12px; border-radius:12px; font-size:13px; font-weight:bold;">
+        ＋ 新增
+      </button>
+    </div>
+    <div class="main-content" style="padding:var(--sp-md) var(--sp-md) 100px var(--sp-md);">
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:16px; padding-left:4px;">
+        長按手把 ≡ 拖拉重新排序
+      </div>
+      <div id="categoriesList" class="categories-list">
+        <!-- 動態渲染分類行 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
        底部導覽列
   ════════════════════════════════════════ -->
   <nav class="bottom-nav" id="bottomNav">
@@ -703,6 +726,7 @@ const IND_MAP = {
 var S = {
   cards: [],
   filtered: [],
+  categories: [],
   curCard: null,
   curPage: 'home',
   query: '',
@@ -791,6 +815,299 @@ function metaSet(key, val) {
     var req = db.transaction('meta','readwrite').objectStore('meta').put({ key:key, val:val });
     req.onsuccess = function() { res(true); };
     req.onerror   = function() { res(false); };
+  });
+}
+
+// ────────────────────────────────────────────
+// 動態分類管理系統 API
+// ────────────────────────────────────────────
+async function initCategories() {
+  var cats = await metaGet('categories');
+  if (!cats || cats.length === 0) {
+    cats = [
+      { id: 'it', name: '💻 IT科技' },
+      { id: 'finance', name: '💰 金融' },
+      { id: 'medical', name: '🏥 醫療' },
+      { id: 'food', name: '🍽️ 餐飲' },
+      { id: 'legal', name: '⚖️ 法律' },
+      { id: 'edu', name: '🎓 教育' },
+      { id: 'retail', name: '🛍️ 零售' },
+      { id: 'real', name: '🏢 不動產' },
+      { id: 'media', name: '📺 媒體' },
+      { id: 'mfg', name: '🏭 製造' },
+      { id: 'travel', name: '✈️ 旅遊' },
+      { id: 'beauty', name: '💄 美容' },
+      { id: 'other', name: '📋 其他' }
+    ];
+    await metaSet('categories', cats);
+  }
+  S.categories = cats;
+}
+
+function getCategoryName(id) {
+  if (!id) return '';
+  var cat = S.categories.find(function(c) { return c.id === id; });
+  return cat ? cat.name : id;
+}
+
+function renderFilterRow() {
+  var row = document.getElementById('filterRow');
+  if (!row) return;
+  var html = '<button class="chip' + (S.ind === 'all' ? ' active' : '') + '" data-ind="all">全部</button>';
+  S.categories.forEach(function(cat) {
+    html += '<button class="chip' + (S.ind === cat.id ? ' active' : '') + '" data-ind="' + cat.id + '">' + esc(cat.name) + '</button>';
+  });
+  html += '<button class="chip chip--manage" onclick="goTo(\'categories\')" style="background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.15);color:var(--text-sub);">⚙️ 管理</button>';
+  row.innerHTML = html;
+}
+
+function populateIndustrySelect() {
+  var sel = document.getElementById('fIndustry');
+  if (!sel) return;
+  var html = '<option value="">選擇分類</option>';
+  S.categories.forEach(function(cat) {
+    if (cat.id !== 'other') {
+      html += '<option value="' + cat.id + '">' + esc(cat.name) + '</option>';
+    }
+  });
+  var otherCat = S.categories.find(function(c) { return c.id === 'other'; });
+  if (otherCat) {
+    html += '<option value="other">' + esc(otherCat.name) + '</option>';
+  } else {
+    html += '<option value="other">📋 其他</option>';
+  }
+  sel.innerHTML = html;
+}
+
+function renderCategories() {
+  var list = document.getElementById('categoriesList');
+  if (!list) return;
+  var html = '';
+  var allKeys = S.categories.filter(function(x){ return x.id !== 'other'; }).map(function(x){ return x.id; });
+  
+  S.categories.forEach(function(cat, index) {
+    var count = S.cards.filter(function(c) {
+      if (cat.id === 'other') {
+        return !c.industry || allKeys.indexOf(c.industry) === -1;
+      }
+      return c.industry === cat.id;
+    }).length;
+    
+    var isOther = cat.id === 'other';
+    var deleteBtn = isOther ? '' : '<button class="category-item__btn category-item__btn--delete" onclick="deleteCategory(\'' + cat.id + '\')">刪除</button>';
+    
+    html += '<div class="category-item" draggable="true" data-id="' + cat.id + '" data-index="' + index + '">' +
+              '<div class="category-item__handle">≡</div>' +
+              '<div class="category-item__body">' +
+                '<div class="category-item__name">' + esc(cat.name) + '</div>' +
+                '<div class="category-item__count">' + count + ' 張名片</div>' +
+              '</div>' +
+              '<div class="category-item__actions">' +
+                '<button class="category-item__btn category-item__btn--rename" onclick="renameCategory(\'' + cat.id + '\')">改名</button>' +
+                deleteBtn +
+              '</div>' +
+            '</div>';
+  });
+  list.innerHTML = html;
+  
+  document.querySelectorAll('.category-item').forEach(function(el) {
+    bindDragEvents(el);
+    bindTouchEvents(el);
+  });
+}
+
+function addCategory() {
+  var name = prompt('請輸入新分類名稱（如：客戶、供應商）：');
+  if (!name) return;
+  name = name.trim();
+  if (!name) return;
+  
+  var exists = S.categories.some(function(c) { return c.name === name; });
+  if (exists) {
+    alert('此分類名稱已存在！');
+    return;
+  }
+  
+  var newId = 'cat_' + Date.now();
+  // 插入到 "其他" 之前
+  var otherIdx = S.categories.findIndex(function(c){ return c.id === 'other'; });
+  if (otherIdx !== -1) {
+    S.categories.splice(otherIdx, 0, { id: newId, name: name });
+  } else {
+    S.categories.push({ id: newId, name: name });
+  }
+  
+  metaSet('categories', S.categories).then(function() {
+    renderCategories();
+    renderFilterRow();
+    populateIndustrySelect();
+  });
+}
+
+function renameCategory(id) {
+  var cat = S.categories.find(function(c) { return c.id === id; });
+  if (!cat) return;
+  
+  var newName = prompt('將「' + cat.name + '」改名為：', cat.name);
+  if (!newName) return;
+  newName = newName.trim();
+  if (!newName || newName === cat.name) return;
+  
+  var exists = S.categories.some(function(c) { return c.id !== id && c.name === newName; });
+  if (exists) {
+    alert('此分類名稱已存在！');
+    return;
+  }
+  
+  cat.name = newName;
+  
+  metaSet('categories', S.categories).then(function() {
+    renderCategories();
+    renderFilterRow();
+    populateIndustrySelect();
+  });
+}
+
+function deleteCategory(id) {
+  if (id === 'other') {
+    alert('「其他」為系統預設分類，不可刪除！');
+    return;
+  }
+  
+  var cat = S.categories.find(function(c) { return c.id === id; });
+  if (!cat) return;
+  
+  var associatedCount = S.cards.filter(function(c) { return c.industry === id; }).length;
+  var confirmMsg = '確定要刪除「' + cat.name + '」嗎？';
+  if (associatedCount > 0) {
+    confirmMsg = '警告：該分類下有 ' + associatedCount + ' 張名片。刪除分類後，這些名片將會被自動歸類到「其他」分類中。\n\n' + confirmMsg;
+  }
+  
+  if (!confirm(confirmMsg)) return;
+  
+  var promises = [];
+  S.cards.forEach(function(c) {
+    if (c.industry === id) {
+      c.industry = 'other';
+      promises.push(dbPut(c));
+    }
+  });
+  
+  Promise.all(promises).then(function() {
+    S.categories = S.categories.filter(function(c) { return c.id !== id; });
+    metaSet('categories', S.categories).then(function() {
+      renderCategories();
+      renderFilterRow();
+      populateIndustrySelect();
+      applyFilter();
+    });
+  });
+}
+
+// ────────────────────────────────────────────
+// 拖曳排序實作 (HTML5 Drag & Drop)
+// ────────────────────────────────────────────
+var dragStartIndex = null;
+
+function handleDragStart(e) {
+  dragStartIndex = parseInt(this.dataset.index);
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e) {
+  if (e.preventDefault) {
+    e.preventDefault();
+  }
+  return false;
+}
+
+function handleDragEnter(e) {
+  this.classList.add('over');
+}
+
+function handleDragLeave(e) {
+  this.classList.remove('over');
+}
+
+function handleDrop(e) {
+  e.stopPropagation();
+  var dragEndIndex = parseInt(this.dataset.index);
+  if (dragStartIndex !== null && dragEndIndex !== null && dragStartIndex !== dragEndIndex) {
+    var movedItem = S.categories.splice(dragStartIndex, 1)[0];
+    S.categories.splice(dragEndIndex, 0, movedItem);
+    
+    metaSet('categories', S.categories).then(function() {
+      renderCategories();
+      renderFilterRow();
+      populateIndustrySelect();
+    });
+  }
+  return false;
+}
+
+function handleDragEnd(e) {
+  this.classList.remove('dragging');
+  document.querySelectorAll('.category-item').forEach(function(item) {
+    item.classList.remove('over');
+  });
+}
+
+function bindDragEvents(el) {
+  el.addEventListener('dragstart', handleDragStart);
+  el.addEventListener('dragover', handleDragOver);
+  el.addEventListener('dragenter', handleDragEnter);
+  el.addEventListener('dragleave', handleDragLeave);
+  el.addEventListener('drop', handleDrop);
+  el.addEventListener('dragend', handleDragEnd);
+}
+
+// ────────────────────────────────────────────
+// 手動觸控拖曳排序 (Mobile Touch Support)
+// ────────────────────────────────────────────
+var activeItem = null;
+
+function bindTouchEvents(el) {
+  var handle = el.querySelector('.category-item__handle');
+  if (!handle) return;
+  
+  handle.addEventListener('touchstart', function(e) {
+    activeItem = el;
+    el.classList.add('dragging');
+    e.preventDefault();
+  }, { passive: false });
+  
+  handle.addEventListener('touchmove', function(e) {
+    if (!activeItem) return;
+    e.preventDefault();
+    var currentY = e.touches[0].clientY;
+    var target = document.elementFromPoint(e.touches[0].clientX, currentY);
+    var targetItem = target ? target.closest('.category-item') : null;
+    
+    if (targetItem && targetItem !== activeItem) {
+      var targetIndex = parseInt(targetItem.dataset.index);
+      var activeIndex = parseInt(activeItem.dataset.index);
+      
+      if (!isNaN(targetIndex) && !isNaN(activeIndex)) {
+        var moved = S.categories.splice(activeIndex, 1)[0];
+        S.categories.splice(targetIndex, 0, moved);
+        
+        metaSet('categories', S.categories).then(function() {
+          renderCategories();
+          renderFilterRow();
+          populateIndustrySelect();
+        });
+        
+        activeItem = document.querySelector('.category-item[data-index="' + targetIndex + '"]');
+      }
+    }
+  }, { passive: false });
+  
+  handle.addEventListener('touchend', function(e) {
+    if (activeItem) {
+      activeItem.classList.remove('dragging');
+      activeItem = null;
+    }
   });
 }
 
@@ -899,6 +1216,12 @@ function goTo(page) {
   if (page === 'add')      { onAddPage(); checkApiKeyWarning(); }
   if (page === 'mycard')   { loadMyCard(); }
   if (page === 'settings') { loadSettings(); }
+  if (page === 'categories') {
+    dbAll().then(function(cards) {
+      S.cards = cards;
+      renderCategories();
+    });
+  }
 }
 
 // ────────────────────────────────────────────
@@ -906,6 +1229,7 @@ function goTo(page) {
 // ────────────────────────────────────────────
 async function loadCards() {
   S.cards = await dbAll();
+  renderFilterRow();
   applyFilter();
   updateStats();
   checkBirthday();
@@ -916,7 +1240,7 @@ function applyFilter() {
   var ind = S.ind;
   S.filtered = S.cards.filter(function(c) {
     if (ind !== 'all') {
-      var presetKeys = ['it', 'finance', 'medical', 'food', 'legal', 'edu', 'retail', 'real', 'media', 'mfg', 'travel', 'beauty'];
+      var presetKeys = S.categories.filter(function(x){ return x.id !== 'other'; }).map(function(x){ return x.id; });
       if (ind === 'other') {
         var isPreset = presetKeys.indexOf(c.industry) !== -1;
         if (isPreset) return false;
@@ -969,7 +1293,7 @@ function renderList(cards) {
 function cardHTML(c) {
   var ini = (c.name||"?").charAt(0);
   var colorIdx = c.id ? c.id % 6 : 0;
-  var ind = c.industry ? (IND_MAP[c.industry]||c.industry) : '';
+  var ind = c.industry ? getCategoryName(c.industry) : '';
   var colorDot = c.bgColorHex ? '<span class="color-dot" style="background:'+c.bgColorHex+'"></span>' : '';
   var colorTag = c.bgColor ? '<span class="tag tag--color">'+colorDot+esc(c.bgColor)+'</span>' : '';
   var indTag   = ind ? '<span class="tag tag--industry">'+esc(ind)+'</span>' : '';
@@ -1021,7 +1345,7 @@ async function openDetail(id) {
   if (!c) return;
   S.curCard = c;
   
-  var ind = c.industry ? (IND_MAP[c.industry]||c.industry) : '—';
+  var ind = c.industry ? getCategoryName(c.industry) : '—';
   document.getElementById('detailName').textContent = c.name||'（無姓名）';
   document.getElementById('dIndustry').textContent = ind;
   document.getElementById('dRegion').textContent   = c.region||'—';
@@ -3118,7 +3442,7 @@ async function doExportCSV() {
   var header = ['姓名','公司','職稱','電話','Email','地址','業種','區域','生日','名片底色','特色備註','建立時間'];
   var rows = cards.map(function(c) {
     return [c.name,c.company,c.title,c.phone,c.email,c.address,
-      IND_MAP[c.industry]||c.industry,c.region,c.birthday,c.bgColor,
+      getCategoryName(c.industry),c.region,c.birthday,c.bgColor,
       (c.note||'').replace(/\n/g,'｜'),
       c.createdAt ? new Date(c.createdAt).toLocaleDateString('zh-TW') : ''
     ].map(function(v){ return '"'+String(v||'').replace(/"/g,'""')+'"'; }).join(',');
@@ -3181,7 +3505,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // 初始化 DB
   await openDB();
+  await initCategories();
   S.geminiKey = await metaGet('geminiKey') || '';
+  populateIndustrySelect();
 
   // 導覽列
   document.getElementById('bottomNav').addEventListener('click', function(e) {
@@ -3194,7 +3520,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 篩選 chips
   document.getElementById('filterRow').addEventListener('click', function(e) {
     var btn = e.target.closest('.chip');
-    if (!btn) return;
+    if (!btn || btn.classList.contains('chip--manage')) return;
     document.querySelectorAll('#filterRow .chip').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     S.ind = btn.dataset.ind;
