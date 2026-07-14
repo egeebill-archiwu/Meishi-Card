@@ -73,14 +73,16 @@
        頂部列（首頁專用，其他頁各自處理）
   ════════════════════════════════════════ -->
   <header class="top-bar" id="globalTopBar">
-    <div class="top-bar__row">
-      <div class="top-bar__brand">
-        <span class="top-bar__dot"></span>
-        <span class="top-bar__title">善緣名片王</span>
+    <div class="top-bar__row" style="display:flex; justify-content:space-between; align-items:center;">
+      <button class="back-btn" onclick="goTo('categories')" style="background:none; border:none; color:var(--text-sub); font-size:15px; cursor:pointer; display:flex; align-items:center; gap:4px; font-weight:bold; padding:0; margin:0;">
+        &lt; 分類
+      </button>
+      <div class="top-bar__brand" style="margin:0 auto; padding-right: 40px;">
+        <span class="top-bar__title" id="homePageTitle">全部名片</span>
       </div>
       <span class="top-bar__count" id="topBarCount">共 0 張</span>
     </div>
-    <div class="search-wrap">
+    <div class="search-wrap" style="margin-top:var(--sp-xs);">
       <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input class="search-input" id="searchInput" type="search" placeholder="搜尋姓名、公司、備註…" autocomplete="off">
     </div>
@@ -113,23 +115,7 @@
         </div>
       </div>
 
-      <!-- 業種篩選 -->
-      <div class="filter-row" id="filterRow">
-        <button class="chip active" data-ind="all">全部</button>
-        <button class="chip" data-ind="it">💻 IT科技</button>
-        <button class="chip" data-ind="finance">💰 金融</button>
-        <button class="chip" data-ind="medical">🏥 醫療</button>
-        <button class="chip" data-ind="food">🍽️ 餐飲</button>
-        <button class="chip" data-ind="legal">⚖️ 法律</button>
-        <button class="chip" data-ind="edu">🎓 教育</button>
-        <button class="chip" data-ind="retail">🛍️ 零售</button>
-        <button class="chip" data-ind="real">🏢 不動產</button>
-        <button class="chip" data-ind="media">📺 媒體</button>
-        <button class="chip" data-ind="mfg">🏭 製造</button>
-        <button class="chip" data-ind="travel">✈️ 旅遊</button>
-        <button class="chip" data-ind="beauty">💄 美容</button>
-        <button class="chip" data-ind="other">📋 其他</button>
-      </div>
+
 
       <!-- 列表標頭 -->
       <div class="section-header">
@@ -656,9 +642,7 @@
   ════════════════════════════════════════ -->
   <div class="page" id="page-categories">
     <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; padding:var(--sp-md); border-bottom:1px solid var(--border);">
-      <button class="back-btn" onclick="goTo('home')" style="background:none; border:none; color:var(--text-main); font-size:16px; cursor:pointer; display:flex; align-items:center; gap:4px; font-weight:bold;">
-        &lt; 名片
-      </button>
+      <div style="width: 50px;"></div>
       <div class="page-title" style="font-size:18px; font-weight:700; color:var(--text-main);">分類</div>
       <button class="btn btn--primary btn--sm" onclick="addCategory()" style="padding:6px 12px; border-radius:12px; font-size:13px; font-weight:bold;">
         ＋ 新增
@@ -678,7 +662,7 @@
        底部導覽列
   ════════════════════════════════════════ -->
   <nav class="bottom-nav" id="bottomNav">
-    <button class="nav-btn active" data-page="home">
+    <button class="nav-btn active" data-page="categories">
       <svg class="icon-svg" viewBox="0 0 24 24">
         <path d="M4 12a4 4 0 118 0" />
         <path d="M12 12a4 4 0 118 0" />
@@ -976,6 +960,20 @@ function renderCategories() {
   var list = document.getElementById('categoriesList');
   if (!list) return;
   var html = '';
+  
+  // 計算總名片數
+  var totalCount = S.cards.length;
+  
+  // 1. 渲染固定的「📂 全部名片」置頂目錄，不可拖曳或編輯
+  html += '<div class="category-item" style="cursor:pointer;" onclick="selectCategoryAndGo(\'all\')">' +
+            '<div class="category-item__handle" style="visibility:hidden;pointer-events:none;">≡</div>' +
+            '<div class="category-item__body" style="margin-left:-8px;">' +
+              '<div class="category-item__name">📂 全部名片</div>' +
+              '<div class="category-item__count">' + totalCount + ' 張名片</div>' +
+            '</div>' +
+            '<div class="category-item__actions"></div>' +
+          '</div>';
+
   var allKeys = S.categories.filter(function(x){ return x.id !== 'other'; }).map(function(x){ return x.id; });
   
   S.categories.forEach(function(cat, index) {
@@ -987,16 +985,16 @@ function renderCategories() {
     }).length;
     
     var isOther = cat.id === 'other';
-    var deleteBtn = isOther ? '' : '<button class="category-item__btn category-item__btn--delete" onclick="deleteCategory(\'' + cat.id + '\')">刪除</button>';
+    var deleteBtn = isOther ? '' : '<button class="category-item__btn category-item__btn--delete" onclick="event.stopPropagation(); deleteCategory(\'' + cat.id + '\')">刪除</button>';
     
-    html += '<div class="category-item" draggable="true" data-id="' + cat.id + '" data-index="' + index + '">' +
-              '<div class="category-item__handle">≡</div>' +
+    html += '<div class="category-item" draggable="true" data-id="' + cat.id + '" data-index="' + index + '" onclick="selectCategoryAndGo(\'' + cat.id + '\')">' +
+              '<div class="category-item__handle" onclick="event.stopPropagation()">≡</div>' +
               '<div class="category-item__body">' +
                 '<div class="category-item__name">' + esc(cat.name) + '</div>' +
                 '<div class="category-item__count">' + count + ' 張名片</div>' +
               '</div>' +
               '<div class="category-item__actions">' +
-                '<button class="category-item__btn category-item__btn--rename" onclick="renameCategory(\'' + cat.id + '\')">改名</button>' +
+                '<button class="category-item__btn category-item__btn--rename" onclick="event.stopPropagation(); renameCategory(\'' + cat.id + '\')">改名</button>' +
                 deleteBtn +
               '</div>' +
             '</div>';
@@ -1294,13 +1292,30 @@ async function aiSearch(q) {
 // ────────────────────────────────────────────
 // 頁面路由
 // ────────────────────────────────────────────
+function goBack() {
+  if (S.prevPage) {
+    goTo(S.prevPage);
+  } else {
+    goTo('categories');
+  }
+}
+
+function selectCategoryAndGo(catId) {
+  S.ind = catId;
+  goTo('home');
+}
+
 function goTo(page) {
+  if (page !== S.curPage) {
+    S.prevPage = S.curPage;
+  }
   S.curPage = page;
   document.querySelectorAll('.page').forEach(function(p) {
     p.classList.toggle('active', p.id === 'page-'+page);
   });
   document.querySelectorAll('.nav-btn').forEach(function(b) {
-    b.classList.toggle('active', b.dataset.page === page);
+    var isActive = (b.dataset.page === page) || (page === 'home' && b.dataset.page === 'categories');
+    b.classList.toggle('active', isActive);
   });
   // 頂部列只在首頁顯示
   document.getElementById('globalTopBar').style.display = page === 'home' ? '' : 'none';
@@ -1330,7 +1345,15 @@ async function loadCards() {
     console.error("loadCards dbAll failed:", err);
     S.cards = [];
   }
-  renderFilterRow();
+  
+  // 更新特定分類列表的頂部標題
+  var cat = S.categories.find(function(c) { return c.id === S.ind; });
+  var titleText = cat ? cat.name : (S.ind === 'all' ? '全部名片' : S.ind);
+  var titleEl = document.getElementById('homePageTitle');
+  if (titleEl) {
+    titleEl.innerText = titleText;
+  }
+  
   applyFilter();
   updateStats();
   checkBirthday();
@@ -3667,9 +3690,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // 初始載入
   try {
-    goTo('home');
+    goTo('categories');
   } catch(err) {
-    console.error("goTo home failed:", err);
+    console.error("goTo categories failed:", err);
   }
 
   // ── 徹底註銷並清除舊的 Service Worker 以防快取鎖死 ──
