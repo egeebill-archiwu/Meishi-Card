@@ -745,7 +745,7 @@ var db = null;
 
 function openDB() {
   return new Promise(function(res, rej) {
-    var req = indexedDB.open('ShanyuanDB', 2);
+    var req = indexedDB.open('ShanyuanDB', 3);
     req.onupgradeneeded = function(e) {
       var d = e.target.result;
       if (!d.objectStoreNames.contains('cards')) {
@@ -804,17 +804,35 @@ function dbDel(id) {
 
 function metaGet(key) {
   return new Promise(function(res) {
-    var req = db.transaction('meta','readonly').objectStore('meta').get(key);
-    req.onsuccess = function(e) { res(e.target.result ? e.target.result.val : null); };
-    req.onerror   = function()  { res(null); };
+    try {
+      if (!db || !db.objectStoreNames.contains('meta')) {
+        res(null);
+        return;
+      }
+      var req = db.transaction('meta','readonly').objectStore('meta').get(key);
+      req.onsuccess = function(e) { res(e.target.result ? e.target.result.val : null); };
+      req.onerror   = function()  { res(null); };
+    } catch(err) {
+      console.warn("metaGet failed (ignored):", err);
+      res(null);
+    }
   });
 }
 
 function metaSet(key, val) {
   return new Promise(function(res) {
-    var req = db.transaction('meta','readwrite').objectStore('meta').put({ key:key, val:val });
-    req.onsuccess = function() { res(true); };
-    req.onerror   = function() { res(false); };
+    try {
+      if (!db || !db.objectStoreNames.contains('meta')) {
+        res(false);
+        return;
+      }
+      var req = db.transaction('meta','readwrite').objectStore('meta').put({ key:key, val:val });
+      req.onsuccess = function() { res(true); };
+      req.onerror   = function() { res(false); };
+    } catch(err) {
+      console.warn("metaSet failed (ignored):", err);
+      res(false);
+    }
   });
 }
 
@@ -822,9 +840,30 @@ function metaSet(key, val) {
 // 動態分類管理系統 API
 // ────────────────────────────────────────────
 async function initCategories() {
-  var cats = await metaGet('categories');
-  if (!cats || cats.length === 0) {
-    cats = [
+  try {
+    var cats = await metaGet('categories');
+    if (!cats || cats.length === 0) {
+      cats = [
+        { id: 'it', name: '💻 IT科技' },
+        { id: 'finance', name: '💰 金融' },
+        { id: 'medical', name: '🏥 醫療' },
+        { id: 'food', name: '🍽️ 餐飲' },
+        { id: 'legal', name: '⚖️ 法律' },
+        { id: 'edu', name: '🎓 教育' },
+        { id: 'retail', name: '🛍️ 零售' },
+        { id: 'real', name: '🏢 不動產' },
+        { id: 'media', name: '📺 媒體' },
+        { id: 'mfg', name: '🏭 製造' },
+        { id: 'travel', name: '✈️ 旅遊' },
+        { id: 'beauty', name: '💄 美容' },
+        { id: 'other', name: '📋 其他' }
+      ];
+      await metaSet('categories', cats);
+    }
+    S.categories = cats;
+  } catch(err) {
+    console.error("initCategories failed, falling back to defaults:", err);
+    S.categories = [
       { id: 'it', name: '💻 IT科技' },
       { id: 'finance', name: '💰 金融' },
       { id: 'medical', name: '🏥 醫療' },
@@ -839,9 +878,7 @@ async function initCategories() {
       { id: 'beauty', name: '💄 美容' },
       { id: 'other', name: '📋 其他' }
     ];
-    await metaSet('categories', cats);
   }
-  S.categories = cats;
 }
 
 function getCategoryName(id) {
@@ -1220,6 +1257,9 @@ function goTo(page) {
     dbAll().then(function(cards) {
       S.cards = cards;
       renderCategories();
+    }).catch(function(err) {
+      console.warn("categories dbAll failed, using cache:", err);
+      renderCategories();
     });
   }
 }
@@ -1228,7 +1268,12 @@ function goTo(page) {
 // 首頁：載入與渲染
 // ────────────────────────────────────────────
 async function loadCards() {
-  S.cards = await dbAll();
+  try {
+    S.cards = await dbAll();
+  } catch(err) {
+    console.error("loadCards dbAll failed:", err);
+    S.cards = [];
+  }
   renderFilterRow();
   applyFilter();
   updateStats();
@@ -3503,11 +3548,30 @@ function esc(s) {
 // ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async function() {
 
-  // 初始化 DB
-  await openDB();
-  await initCategories();
-  S.geminiKey = await metaGet('geminiKey') || '';
-  populateIndustrySelect();
+  // 初始化 DB 與分類數據
+  try {
+    await openDB();
+  } catch(err) {
+    console.error("IndexedDB open failed:", err);
+  }
+  
+  try {
+    await initCategories();
+  } catch(err) {
+    console.error("Categories init failed:", err);
+  }
+
+  try {
+    S.geminiKey = await metaGet('geminiKey') || '';
+  } catch(err) {
+    S.geminiKey = '';
+  }
+
+  try {
+    populateIndustrySelect();
+  } catch(err) {
+    console.error("populateIndustrySelect failed:", err);
+  }
 
   // 導覽列
   document.getElementById('bottomNav').addEventListener('click', function(e) {
@@ -3535,7 +3599,11 @@ document.addEventListener('DOMContentLoaded', async function() {
   });
 
   // 初始載入
-  goTo('home');
+  try {
+    goTo('home');
+  } catch(err) {
+    console.error("goTo home failed:", err);
+  }
 
   // ── 徹底註銷並清除舊的 Service Worker 以防快取鎖死 ──
   if ('serviceWorker' in navigator) {
