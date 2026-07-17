@@ -3025,7 +3025,7 @@ async function processOcr(compUrl, side) {
     if (parsed.corners && (parsed.corners.tl || parsed.corners.TL)) {
       try {
         var img = new Image();
-        img.onload = function() {
+        img.onload = async function() {
           var targetW = 1600;
           var targetH = 1000;
           var canvas = document.createElement('canvas');
