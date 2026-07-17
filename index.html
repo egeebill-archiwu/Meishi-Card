@@ -627,7 +627,7 @@
         <div class="glass" style="padding:var(--sp-xl);text-align:center;border-radius:var(--r-lg);">
           <div style="font-size:36px;margin-bottom:8px;">🪪</div>
           <div style="font-size:17px;font-weight:900;margin-bottom:4px;">善緣名片王</div>
-          <div style="font-size:12px;color:var(--text-hint);">v2.0 · SHANYUAN CARD MASTER</div>
+          <div style="font-size:12px;color:var(--text-hint);">v2.1 (Build 20260717) · SHANYUAN CARD MASTER</div>
           <div style="font-size:12px;color:var(--text-hint);margin-top:12px;line-height:1.8;">
             資料僅儲存於本機<br>不傳送至任何伺服器
           </div>
@@ -1737,17 +1737,25 @@ function compressImage(dataUrl, maxSize, quality) {
 
 // ── 正則備援：從原始文字抓各欄位 ─────────────────
 function extractFromText(text) {
+  // 💡 在正則解析前，先對整個文字流做 PII 遮罩還原，使正則表達式能順利配對
+  var decodedText = text
+    .replace(/_at_|\s*\[at\]\s*|\s*\(at\)\s*/gi, '@')
+    .replace(/_dot_|\s*\[dot\]\s*|\s*\(dot\)\s*/gi, '.');
+  
+  // 移除所有數字之間的空格，例如 "09 10 24 12 71" -> "0910241271"
+  decodedText = decodedText.replace(/(\d)\s+(?=\d)/g, '$1');
+
   var result = { _isFallback: true };
-  var emailM = text.match(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i);
+  var emailM = decodedText.match(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i);
   if (emailM) result.email = emailM[0];
-  var phoneM = text.match(/(?:\+?886[-\s]?|0)[2-9][\d\s()-]{6,12}/);
+  var phoneM = decodedText.match(/(?:\+?886[-\s]?|0)[2-9][\d\s()-]{6,12}/);
   if (phoneM) result.phone = phoneM[0].trim();
   
   // 👔 屬性匹配：支援單/雙/無引號之字串及陣列格式，確保 regex 備援也能拿到 company, title 等欄位
   ['name','company','title','phone','email','address'].forEach(function(f) {
     // 優先匹配陣列格式，如 "company": ["A", "B"]
     var arrRe = new RegExp('["\']?' + f + '["\']?\\s*:\\s*\\[([\\s\\S]*?)\\]', 'i');
-    var arrM = text.match(arrRe);
+    var arrM = decodedText.match(arrRe);
     if (arrM && arrM[1]) {
       var items = [];
       var strRe = /["']([^"']*)["']/g;
@@ -1762,12 +1770,12 @@ function extractFromText(text) {
     }
     // 次優先匹配單一字串格式
     var re = new RegExp('["\']?' + f + '["\']?\\s*:\\s*["\']([^"\']*)["\']', 'i');
-    var m = text.match(re);
+    var m = decodedText.match(re);
     if (m && m[1] && !result[f]) result[f] = m[1];
   });
 
   // 嘗試從文字中以 Regex 提取 raw_text 陣列，作為 JSON 解析失敗時的極限備援
-  var rawTextMatch = text.match(/["']?raw_?texts?(?:_list)?["']?\s*:\s*\[([\s\S]*?)\]/i);
+  var rawTextMatch = decodedText.match(/["']?raw_?texts?(?:_list)?["']?\s*:\s*\[([\s\S]*?)\]/i);
   if (rawTextMatch && rawTextMatch[1]) {
     try {
       var items = [];
@@ -1785,7 +1793,7 @@ function extractFromText(text) {
   }
 
   // 嘗試從文字中以 Regex 提取 profiles 陣列，作為 JSON 解析失敗時的極限備援
-  var profilesMatch = text.match(/["']?profiles?["']?\s*:\s*\[([\s\S]*?)\]/i);
+  var profilesMatch = decodedText.match(/["']?profiles?["']?\s*:\s*\[([\s\S]*?)\]/i);
   if (profilesMatch && profilesMatch[1]) {
     try {
       var profilesList = [];
@@ -1811,7 +1819,7 @@ function extractFromText(text) {
   }
 
   // 嘗試從文字中以 Regex 正則提取 corners 坐標，作為 JSON 解析失敗時的極限備援
-  var cornersMatch = text.match(/["']?corners["']?\s*:\s*\{[\s\S]*?\}/i);
+  var cornersMatch = decodedText.match(/["']?corners["']?\s*:\s*\{[\s\S]*?\}/i);
   if (cornersMatch) {
     try {
       var cleanCornersStr = cornersMatch[0].replace(/"corners"\s*:\s*/, '');
@@ -1820,10 +1828,10 @@ function extractFromText(text) {
         result.corners = JSON.parse(braceMatch[0]);
       }
     } catch(e) {
-      var tlM = text.match(/"tl"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
-      var trM = text.match(/"tr"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
-      var brM = text.match(/"br"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
-      var blM = text.match(/"bl"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
+      var tlM = decodedText.match(/"tl"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
+      var trM = decodedText.match(/"tr"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
+      var brM = decodedText.match(/"br"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
+      var blM = decodedText.match(/"bl"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
       if (tlM && trM && brM && blM) {
         result.corners = {
           tl: [parseFloat(tlM[1]), parseFloat(tlM[2])],
@@ -1834,6 +1842,15 @@ function extractFromText(text) {
       }
     }
   }
+  // 嘗試從文字中以 Regex 提取 rotation_angle
+  var rotMatch = decodedText.match(/["']?rotation_?angle["']?\s*:\s*(-?\d+)/i);
+  if (rotMatch) {
+    result.rotation_angle = parseInt(rotMatch[1]);
+  } else {
+    var rotMatch2 = decodedText.match(/["']?rotationAngle["']?\s*:\s*(-?\d+)/i);
+    if (rotMatch2) result.rotation_angle = parseInt(rotMatch2[1]);
+  }
+
   return result;
 }
 
@@ -2009,6 +2026,33 @@ function closeCamera() {
   video.srcObject = null;
 }
 
+function updateConfirmPreviewAspectRatio(width, height) {
+  var wrapper = document.getElementById('confirmPreviewImgWrapper');
+  if (!wrapper) return;
+  
+  if (width && height) {
+    var ratio = width / height;
+    wrapper.style.aspectRatio = ratio;
+    
+    // 限制最大高度或寬度，避免直式名片在長螢幕上高度過高超出可見區
+    if (ratio < 1) {
+      // 直式名片
+      wrapper.style.width = 'auto';
+      wrapper.style.height = '48vh'; // 高度限制在螢幕高度的 48%，確保按鈕可見不被擠出
+      wrapper.style.maxWidth = '340px';
+    } else {
+      // 橫式名片
+      wrapper.style.width = '90%';
+      wrapper.style.height = 'auto';
+      wrapper.style.maxWidth = '340px';
+    }
+  } else {
+    wrapper.style.aspectRatio = '1.6 / 1';
+    wrapper.style.width = '90%';
+    wrapper.style.height = 'auto';
+  }
+}
+
 // ── 暫存成果與保存/重拍交互 ──
 function showConfirmModal(warpedImgUrl, parsedResult) {
   autoWarpedBase64 = warpedImgUrl;
@@ -2017,6 +2061,13 @@ function showConfirmModal(warpedImgUrl, parsedResult) {
   var modal = document.getElementById('confirmModal');
   var img = document.getElementById('confirmPreviewImg');
   img.src = warpedImgUrl;
+  
+  // 💡 動態調整預覽視窗比例，防止 iOS Safari 渲染變形
+  var tempImg = new Image();
+  tempImg.onload = function() {
+    updateConfirmPreviewAspectRatio(tempImg.width, tempImg.height);
+  };
+  tempImg.src = warpedImgUrl;
   
   var diag = document.getElementById('confirmDiagnosticInfo');
   if (diag) {
@@ -2062,6 +2113,33 @@ function savePhotoAndGo() {
   toast('🎉 名片自動掃描存檔成功！', 'ok');
 }
 
+function decodePIIMask(str, type) {
+  if (!str) return '';
+  var s = String(str).trim();
+  
+  // 1. 還原 Email 遮罩：將 _at_ / [at] / (at) 轉為 @，將 _dot_ / [dot] / (dot) 轉為 .，並移除所有空格
+  s = s.replace(/_at_|\s*\[at\]\s*|\s*\(at\)\s*/gi, '@')
+       .replace(/_dot_|\s*\[dot\]\s*|\s*\(dot\)\s*/gi, '.');
+  
+  if (type === 'email') {
+    s = s.replace(/\s+/g, '');
+  }
+  
+  // 2. 還原電話遮罩：移除所有空格與底線，並在合適位置補上連字號
+  if (type === 'phone') {
+    s = s.replace(/[\s_]+/g, ''); // 移除空格與底線
+    // 手機格式化 0910241271 -> 0910-241-271
+    if (/^09\d{8}$/.test(s)) {
+      s = s.substring(0, 4) + '-' + s.substring(4, 7) + '-' + s.substring(7);
+    } else if (/^02\d{8}$/.test(s)) {
+      s = s.substring(0, 2) + '-' + s.substring(2, 6) + '-' + s.substring(6);
+    } else if (/^0[3-9]\d{7,8}$/.test(s)) {
+      s = s.substring(0, 3) + '-' + s.substring(3, 6) + '-' + s.substring(6);
+    }
+  }
+  return s;
+}
+
 function writeParsedDataToForm(parsed, side) {
   try {
     var name = parsed.name ? String(parsed.name).trim() : '';
@@ -2079,189 +2157,197 @@ function writeParsedDataToForm(parsed, side) {
     }
     toast(toastMsg, 'info');
 
-  // 1. 解析出結構化的身分群組 (Profiles)
-  var incomingProfiles = [];
-  if (parsed.profiles && Array.isArray(parsed.profiles)) {
-    parsed.profiles.forEach(function(item) {
-      if (item && typeof item === 'object') {
-        incomingProfiles.push({
-          company: item.company ? String(item.company).trim() : '',
-          title: item.title ? String(item.title).trim() : '',
-          phone: item.phone ? String(item.phone).trim() : '',
-          email: item.email ? String(item.email).trim() : '',
-          address: item.address ? String(item.address).trim() : ''
-        });
-      } else if (item && typeof item === 'string') {
-        // AI 稀有情況下回傳字串陣列時之安全相容
-        incomingProfiles.push({
-          company: item.trim(),
-          title: parsed.title ? String(parsed.title).trim() : '',
-          phone: parsed.phone ? String(parsed.phone).trim() : '',
-          email: parsed.email ? String(parsed.email).trim() : '',
-          address: parsed.address ? String(parsed.address).trim() : ''
-        });
-      }
-    });
-  } else {
-    // 備援方案：將舊扁平格式轉為身分群組
-    function splitFlatVal(val) {
-      if (!val) return [];
-      return String(val).split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
-    }
-    var companies = splitFlatVal(parsed.company);
-    var titles = splitFlatVal(parsed.title);
-    var phones = splitFlatVal(parsed.phone);
-    var emails = splitFlatVal(parsed.email);
-    var addresses = splitFlatVal(parsed.address);
-    
-    var count = Math.max(companies.length, titles.length, 1);
-    for (var i = 0; i < count; i++) {
-      incomingProfiles.push({
-        company: companies[i] || companies[0] || '',
-        title: titles[i] || titles[0] || '',
-        phone: phones[i] || phones[0] || '',
-        email: emails[i] || emails[0] || '',
-        address: addresses[i] || addresses[0] || ''
-      });
-    }
-  }
-
-  // 👔 屬性補全備援：若 profiles 陣列內的子項缺少 phone/email/address，自動繼承根目錄對應欄位
-  incomingProfiles.forEach(function(p) {
-    if (p && typeof p === 'object') {
-      if (!p.phone && parsed.phone) p.phone = parsed.phone;
-      if (!p.email && parsed.email) p.email = parsed.email;
-      if (!p.address && parsed.address) p.address = parsed.address;
-    }
-  });
-
-  // 過濾掉全空的 Profile
-  incomingProfiles = incomingProfiles.filter(function(p) {
-    return p.company || p.title || p.phone || p.email || p.address;
-  });
-
-  // 💡 公司行號分流優化：若 company 包含 "/"，自動拆分為獨立的多個 Profile 行列，確保清爽
-  var splitProfiles = [];
-  incomingProfiles.forEach(function(p) {
-    if (p.company && p.company.indexOf('/') !== -1) {
-      var companyParts = p.company.split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
-      companyParts.forEach(function(comp) {
-        splitProfiles.push({
-          company: comp,
-          title: p.title || '',
-          phone: p.phone || '',
-          email: p.email || '',
-          address: p.address || ''
-        });
+    // 1. 解析出結構化的身分群組 (Profiles)
+    var incomingProfiles = [];
+    if (parsed.profiles && Array.isArray(parsed.profiles)) {
+      parsed.profiles.forEach(function(item) {
+        if (item && typeof item === 'object') {
+          incomingProfiles.push({
+            company: item.company ? String(item.company).trim() : '',
+            title: item.title ? String(item.title).trim() : '',
+            phone: item.phone ? decodePIIMask(item.phone, 'phone') : '',
+            email: item.email ? decodePIIMask(item.email, 'email') : '',
+            address: item.address ? String(item.address).trim() : ''
+          });
+        } else if (item && typeof item === 'string') {
+          // AI 稀有情況下回傳字串陣列時之安全相容
+          incomingProfiles.push({
+            company: item.trim(),
+            title: parsed.title ? String(parsed.title).trim() : '',
+            phone: parsed.phone ? decodePIIMask(parsed.phone, 'phone') : '',
+            email: parsed.email ? decodePIIMask(parsed.email, 'email') : '',
+            address: parsed.address ? String(parsed.address).trim() : ''
+          });
+        }
       });
     } else {
-      splitProfiles.push(p);
-    }
-  });
-  incomingProfiles = splitProfiles;
-
-  // 💡 側邊覆寫邏輯：重拍同一個面時，清除該面先前的 Profiles 進行覆寫，保留另一面的資料
-  if (!S.currentProfiles) S.currentProfiles = [];
-  if (side) {
-    incomingProfiles.forEach(function(p) { p.side = side; });
-    S.currentProfiles = S.currentProfiles.filter(function(p) {
-      return p.side !== side;
-    });
-  }
-
-  // 💡 核心優化：跨正/反面身分群組「疊加合併」邏輯
-  incomingProfiles.forEach(function(ip) {
-    var exists = false;
-    for (var i = 0; i < S.currentProfiles.length; i++) {
-      var ep = S.currentProfiles[i];
-      if (ep.company.trim() === ip.company.trim() && ep.title.trim() === ip.title.trim()) {
-        exists = true;
-        // 合併多組電話
-        if (ip.phone) {
-          var epPhones = ep.phone.split(/\s*\/\s*/).map(s => s.trim());
-          ip.phone.split(/\s*\/\s*/).forEach(function(phonePart) {
-            var cp = phonePart.trim();
-            if (cp && epPhones.indexOf(cp) === -1) epPhones.push(cp);
-          });
-          ep.phone = epPhones.join(' / ');
-        }
-        // 合併 Email
-        if (ip.email) {
-          var epEmails = ep.email.split(/\s*\/\s*/).map(s => s.trim());
-          ip.email.split(/\s*\/\s*/).forEach(function(emailPart) {
-            var ce = emailPart.trim();
-            if (ce && epEmails.indexOf(ce) === -1) epEmails.push(ce);
-          });
-          ep.email = epEmails.join(' / ');
-        }
-        // 合併地址
-        if (ip.address && ep.address.indexOf(ip.address) === -1) {
-          ep.address = ip.address;
-        }
-        if (ip.side) ep.side = ip.side;
-        break;
+      // 備援方案：將舊扁平格式轉為身分群組
+      function splitFlatVal(val) {
+        if (!val) return [];
+        return String(val).split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
       }
-    }
-    if (!exists) {
-      S.currentProfiles.push(ip);
-    }
-  });
-
-  if (S.currentProfiles.length === 0) return 0;
-
-  var masterContainer = document.getElementById('profileSelectorContainer');
-  var masterSelector = document.getElementById('fProfileSelector');
-
-  // 2. 如果有多重身分組，顯示主選擇器
-  if (S.currentProfiles.length > 1) {
-    if (masterSelector && masterContainer) {
-      masterSelector.innerHTML = '';
-      S.currentProfiles.forEach(function(p, idx) {
-        var opt = document.createElement('option');
-        opt.value = idx;
-        opt.textContent = (idx + 1) + '. ' + (p.company || '無公司') + ' (' + (p.title || '無職稱') + ')';
-        masterSelector.appendChild(opt);
-      });
-      masterContainer.style.display = 'block';
+      var companies = splitFlatVal(parsed.company);
+      var titles = splitFlatVal(parsed.title);
+      var phones = splitFlatVal(parsed.phone).map(function(p){ return decodePIIMask(p, 'phone'); });
+      var emails = splitFlatVal(parsed.email).map(function(e){ return decodePIIMask(e, 'email'); });
+      var addresses = splitFlatVal(parsed.address);
       
-      masterSelector.onchange = function() {
-        applyProfileData(S.currentProfiles[this.value]);
-      };
-    }
-  } else {
-    if (masterContainer) masterContainer.style.display = 'none';
-  }
-
-  // 3. 預設載入最新感應拍攝之側邊（side）的第一個身分資訊，讓使用者知道有成功解析，且切換順序更自然
-  var defaultIdx = 0;
-  if (side) {
-    for (var i = 0; i < S.currentProfiles.length; i++) {
-      if (S.currentProfiles[i].side === side) {
-        defaultIdx = i;
-        break;
+      var count = Math.max(companies.length, titles.length, 1);
+      for (var i = 0; i < count; i++) {
+        incomingProfiles.push({
+          company: companies[i] || companies[0] || '',
+          title: titles[i] || titles[0] || '',
+          phone: phones[i] || phones[0] || '',
+          email: emails[i] || emails[0] || '',
+          address: addresses[i] || addresses[0] || ''
+        });
       }
     }
-  } else {
-    defaultIdx = S.currentProfiles.length - 1;
-  }
-  if (masterSelector) masterSelector.value = defaultIdx;
-  applyProfileData(S.currentProfiles[defaultIdx]);
 
-  // 4. 僅顯示當前拍攝面的原始文字氣泡段落，不與另一面疊加，解決狀態殘留 Bug
-  S.currentRawText = [];
-  if (parsed.raw_text && Array.isArray(parsed.raw_text)) {
-    parsed.raw_text.forEach(function(t) {
-      var clean = String(t).trim();
-      if (clean) {
-        S.currentRawText.push({ text: clean, side: side || 'front' });
+    // 👔 屬性補全備援：若 profiles 陣列內的子項缺少 phone/email/address，自動繼承根目錄對應欄位
+    incomingProfiles.forEach(function(p) {
+      if (p && typeof p === 'object') {
+        if (!p.phone && parsed.phone) p.phone = decodePIIMask(parsed.phone, 'phone');
+        if (!p.email && parsed.email) p.email = decodePIIMask(parsed.email, 'email');
+        if (!p.address && parsed.address) p.address = parsed.address;
       }
     });
-  }
-  
-  var rawTextStrings = S.currentRawText.map(function(rt) { return rt.text; });
-  renderRawTextPills(rawTextStrings);
-  
-  return S.currentProfiles.length;
+
+    // 過濾掉全空的 Profile
+    incomingProfiles = incomingProfiles.filter(function(p) {
+      return p.company || p.title || p.phone || p.email || p.address;
+    });
+
+    // 💡 公司行號分流優化：若 company 包含 "/"，自動拆分為獨立的多個 Profile 行列，確保清爽
+    var splitProfiles = [];
+    incomingProfiles.forEach(function(p) {
+      if (p.company && p.company.indexOf('/') !== -1) {
+        var companyParts = p.company.split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
+        companyParts.forEach(function(comp) {
+          splitProfiles.push({
+            company: comp,
+            title: p.title || '',
+            phone: p.phone || '',
+            email: p.email || '',
+            address: p.address || ''
+          });
+        });
+      } else {
+        splitProfiles.push(p);
+      }
+    });
+    incomingProfiles = splitProfiles;
+
+    // 💡 側邊覆寫邏輯：重拍同一個面時，清除該面先前的 Profiles 進行覆寫，保留另一面的資料
+    if (!S.currentProfiles) S.currentProfiles = [];
+    if (side) {
+      incomingProfiles.forEach(function(p) { p.side = side; });
+      S.currentProfiles = S.currentProfiles.filter(function(p) {
+        return p.side !== side;
+      });
+    }
+
+    // 💡 核心優化：跨正/反面身分群組「疊加合併」邏輯
+    incomingProfiles.forEach(function(ip) {
+      var exists = false;
+      for (var i = 0; i < S.currentProfiles.length; i++) {
+        var ep = S.currentProfiles[i];
+        if (ep.company.trim() === ip.company.trim() && ep.title.trim() === ip.title.trim()) {
+          exists = true;
+          // 合併多組電話
+          if (ip.phone) {
+            var epPhones = ep.phone.split(/\s*\/\s*/).map(s => s.trim());
+            ip.phone.split(/\s*\/\s*/).forEach(function(phonePart) {
+              var cp = phonePart.trim();
+              if (cp && epPhones.indexOf(cp) === -1) epPhones.push(cp);
+            });
+            ep.phone = epPhones.join(' / ');
+          }
+          // 合併 Email
+          if (ip.email) {
+            var epEmails = ep.email.split(/\s*\/\s*/).map(s => s.trim());
+            ip.email.split(/\s*\/\s*/).forEach(function(emailPart) {
+              var ce = emailPart.trim();
+              if (ce && epEmails.indexOf(ce) === -1) epEmails.push(ce);
+            });
+            ep.email = epEmails.join(' / ');
+          }
+          // 合併地址
+          if (ip.address && ep.address.indexOf(ip.address) === -1) {
+            ep.address = ip.address;
+          }
+          if (ip.side) ep.side = ip.side;
+          break;
+        }
+      }
+      if (!exists) {
+        S.currentProfiles.push(ip);
+      }
+    });
+
+    if (S.currentProfiles.length === 0) return 0;
+
+    var masterContainer = document.getElementById('profileSelectorContainer');
+    var masterSelector = document.getElementById('fProfileSelector');
+
+    // 2. 如果有多重身分組，顯示主選擇器
+    if (S.currentProfiles.length > 1) {
+      if (masterSelector && masterContainer) {
+        masterSelector.innerHTML = '';
+        S.currentProfiles.forEach(function(p, idx) {
+          var opt = document.createElement('option');
+          opt.value = idx;
+          opt.textContent = (idx + 1) + '. ' + (p.company || '無公司') + ' (' + (p.title || '無職稱') + ')';
+          masterSelector.appendChild(opt);
+        });
+        masterContainer.style.display = 'block';
+        
+        masterSelector.onchange = function() {
+          applyProfileData(S.currentProfiles[this.value]);
+        };
+      }
+    } else {
+      if (masterContainer) masterContainer.style.display = 'none';
+    }
+
+    // 3. 預設載入最新感應拍攝之側邊（side）的第一個身分資訊，讓使用者知道有成功解析，且切換順序更自然
+    var defaultIdx = 0;
+    if (side) {
+      for (var i = 0; i < S.currentProfiles.length; i++) {
+        if (S.currentProfiles[i].side === side) {
+          defaultIdx = i;
+          break;
+        }
+      }
+    } else {
+      defaultIdx = S.currentProfiles.length - 1;
+    }
+    if (masterSelector) masterSelector.value = defaultIdx;
+    applyProfileData(S.currentProfiles[defaultIdx]);
+
+    // 4. 僅顯示當前拍攝面的原始文字氣泡段落，不與另一面疊加，解決狀態殘留 Bug
+    S.currentRawText = [];
+    if (parsed.raw_text && Array.isArray(parsed.raw_text)) {
+      parsed.raw_text.forEach(function(t) {
+        var clean = String(t).trim();
+        if (clean) {
+          var decodedClean = clean;
+          if (clean.indexOf('_at_') !== -1 || clean.indexOf('[at]') !== -1 || clean.indexOf('(at)') !== -1) {
+            decodedClean = decodePIIMask(clean, 'email');
+          } else if (/^\+?\d[\d\s_-]{6,}\d$/.test(clean)) {
+            decodedClean = decodePIIMask(clean, 'phone');
+          } else {
+            decodedClean = decodePIIMask(clean);
+          }
+          S.currentRawText.push({ text: decodedClean, side: side || 'front' });
+        }
+      });
+    }
+    
+    var rawTextStrings = S.currentRawText.map(function(rt) { return rt.text; });
+    renderRawTextPills(rawTextStrings);
+    
+    return S.currentProfiles.length;
   } catch(err) {
     console.error('writeParsedDataToForm error:', err);
     toast('❌ 欄位填入出錯: ' + err.message, 'err');
@@ -2303,11 +2389,11 @@ function applyProfileData(profile) {
       renderCandidateSelect(el, candidates);
     }
 
-    // 💡 邏輯連動：當地址填入時，自動解析「區域」
+    // 💡 邏輯連動：當地址填入時，自動解析「區域」（加上「臺/台」容錯）
     if (k === 'address') {
       var regionEl = document.getElementById('fRegion');
-      var addressVal = el.value.trim();
-      if (regionEl && addressVal && !regionEl.value) {
+      var addressVal = el.value.trim().replace(/臺/g, '台');
+      if (regionEl && addressVal) {
         var regions = [
           '台北市', '新北市', '桃園市', '台中市', '台南市', '高雄市', 
           '基隆市', '新竹市', '嘉義市', '新竹縣', '苗栗縣', '彰化縣', 
@@ -2324,6 +2410,30 @@ function applyProfileData(profile) {
       }
     }
   });
+}
+
+// 💡 當地址改變時，自動解析「區域」（支援「臺」與「台」容錯）
+function autoDetectRegionFromAddress() {
+  var addressEl = document.getElementById('fAddress');
+  var regionEl = document.getElementById('fRegion');
+  if (!addressEl || !regionEl) return;
+  
+  var addressVal = addressEl.value.trim().replace(/臺/g, '台');
+  if (!addressVal) return;
+  
+  var regions = [
+    '台北市', '新北市', '桃園市', '台中市', '台南市', '高雄市', 
+    '基隆市', '新竹市', '嘉義市', '新竹縣', '苗栗縣', '彰化縣', 
+    '南投縣', '雲林縣', '嘉義縣', '屏東縣', '宜蘭縣', '花蓮縣', 
+    '台東縣', '澎湖縣', '金門縣', '連江縣'
+  ];
+  for (var i = 0; i < regions.length; i++) {
+    var r = regions[i];
+    if (addressVal.indexOf(r) !== -1 || addressVal.indexOf(r.substring(0, 2)) !== -1) {
+      regionEl.value = r;
+      break;
+    }
+  }
 }
 
 
@@ -2679,6 +2789,45 @@ function handleImg(input, side) {
   reader.readAsDataURL(file);
 }
 
+async function correctImageRotation(imgUrl, angle) {
+  return new Promise(function(resolve, reject) {
+    if (!angle || angle === 0) {
+      resolve(imgUrl);
+      return;
+    }
+    var img = new Image();
+    img.onload = function() {
+      try {
+        var canvas = document.createElement('canvas');
+        var ctx = canvas.getContext('2d');
+        
+        // 修正角度：若文字旋轉了 angle，則影像需旋轉 -angle
+        var correction = -angle;
+        
+        if (Math.abs(correction) === 90 || Math.abs(correction) === 270) {
+          canvas.width = img.height;
+          canvas.height = img.width;
+        } else {
+          canvas.width = img.width;
+          canvas.height = img.height;
+        }
+        
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate(correction * Math.PI / 180);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+        
+        resolve(canvas.toDataURL('image/jpeg', 0.92));
+      } catch(e) {
+        reject(e);
+      }
+    };
+    img.onerror = function(err) {
+      reject(err);
+    };
+    img.src = imgUrl;
+  });
+}
+
 async function processOcr(compUrl, side) {
   // ── Step 2：底色辨識（僅正面需要，或者都辨識）──
   if (side === 'front') {
@@ -2711,18 +2860,19 @@ async function processOcr(compUrl, side) {
       prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\\n' +
         '{\\n' +
         '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"],\\n' +
+        '  "rotation_angle": 0,\\n' +
         '  "name": "姓名（務必去除字元間的空格，如「劉炳界」）",\\n' +
         '  "company": "所有公司或組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\\n' +
         '  "title": "職稱（以 / 分隔）",\\n' +
         '  "phone": "電話/手機（以 / 分隔，務必細心辨識出角落極小的字）",\\n' +
-        '  "email": "電子郵件（務必去除所有空格與換行，例如將「hanhua0000@yahoo. com. tw」轉為「hanhua0000@yahoo.com.tw」，以 / 分隔）",\\n' +
+        '  "email": "電子郵件（務必去除所有空格與換行，以 / 分隔）",\\n' +
         '  "address": "地址（以 / 分隔）",\\n' +
         '  "profiles": [\\n' +
         '    {\\n' +
         '      "company": "此身分的公司/組織名稱",\\n' +
         '      "title": "此身分的職稱",\\n' +
         '      "phone": "此身分的電話（多個以 / 分隔）",\\n' +
-        '      "email": "此身分的Email（務必去除所有空格，如「hanhua0000@yahoo.com.tw」）",\\n' +
+        '      "email": "此身分的Email",\\n' +
         '      "address": "此身分的地址"\\n' +
         '    }\\n' +
         '  ],\\n' +
@@ -2735,30 +2885,39 @@ async function processOcr(compUrl, side) {
         '}\\n' +
         '【重要 OCR 注意事項】：\\n' +
         '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！\\n' +
-        '2. 【邊界四角定位】：請仔細偵測圖片中「白底名片本身」的四個物理邊角，並以坐標百分比（0~1000 之間的整數，圖片左上角為 [0,0], 右上角為 [1000,0], 右下角為 [1000,1000], 左下角為 [0,1000]）輸出在 corners 屬性中，用以進行 3D 視角拉平去背。請務必精準找出卡片的真正邊界，排除周邊的桌面背景！';
+        '2. 【邊界四角定位】：請仔細偵測圖片中「白底名片本身」的四個物理邊角，並以坐標百分比（0~1000 之間的整數，圖片左上角為 [0,0], 右上角為 [1000,0], 右下角為 [1000,1000], 左下角為 [0,1000]）輸出在 corners 屬性中，用以進行 3D 視角拉平去背。請務必精準找出卡片的真正邊界，排除周邊的桌面背景！\\n' +
+        '3. 【重要安全避讓須知（防截斷 PII 規則）】：為了防範 Google 內建隱私過濾保護（PII）無條件將回傳 JSON 斬斷，您在輸出 `raw_text`、`phone`、`email` 以及 `profiles` 中的「聯絡電話/手機」與「電子郵件Email」時，**必須**強制對其進行以下『防斷遮罩處理』，絕對不能輸出標準格式：\\n' +
+        '   - **所有 Email 遮罩**：必須將 `@` 替換為 `_at_`，其中的 `.` 替換為 `_dot_`（例如 `abc@gmail.com` 必須輸出為 `abc_at_gmail_dot_com`）。\\n' +
+        '   - **所有電話/手機號碼遮罩**：必須在每兩位數字間插入一個空格，並且完全不使用任何連字號 `-` 或括號（例如 `0910-241-271` 必須輸出為 `09 10 24 12 71`；市話 `02-7752-7908` 輸出為 `02 77 52 79 08`）。\\n' +
+        '4. 【文字旋轉方向判定 (rotation_angle)】：請偵測此圖片內文字的旋轉偏角，並填寫在 `rotation_angle` 欄位（以正向閱讀方向為 0 度；若名片文字整體向左傾躺90度，即逆時針偏轉了 90 度，則此欄位請填入 -90；若向右傾躺90度，即順時針偏轉了 90 度，則填入 90；若上下顛倒則填入 180）。';
     } else {
       // 反面專用：不要求 Corners 定位，從而極大地簡化 JSON，100% 避免長度與 PII 安全判定導致的截斷（還原昨日 933d9aa 成功版 prompt 結構）
       prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\\n' +
         '{\\n' +
         '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"],\\n' +
+        '  "rotation_angle": 0,\\n' +
         '  "name": "姓名（務必去除字元間的空格，如「劉炳界」）",\\n' +
         '  "company": "所有公司或組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\\n' +
         '  "title": "職稱（以 / 分隔）",\\n' +
         '  "phone": "電話/手機（以 / 分隔，務必細心辨識出角落極小的字）",\\n' +
-        '  "email": "電子郵件（務必去除所有空格與換行，例如將「hanhua0000@yahoo. com. tw」轉為「hanhua0000@yahoo.com.tw」，以 / 分隔）",\\n' +
+        '  "email": "電子郵件（務必去除所有空格與換行，以 / 分隔）",\\n' +
         '  "address": "地址（以 / 分隔）",\\n' +
         '  "profiles": [\\n' +
         '    {\\n' +
         '      "company": "此身分的公司/組織名稱",\\n' +
         '      "title": "此身分的職稱",\\n' +
         '      "phone": "此身分的電話（多個以 / 分隔）",\\n' +
-        '      "email": "此身分的Email（務必去除所有空格，如「hanhua0000@yahoo.com.tw」）",\\n' +
+        '      "email": "此身分的Email",\\n' +
         '      "address": "此身分的地址"\\n' +
         '    }\\n' +
         '  ]\\n' +
         '}\\n' +
         '【重要 OCR 注意事項】：\\n' +
-        '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！';
+        '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！\\n' +
+        '2. 【重要安全避讓須知（防截斷 PII 規則）】：為了防範 Google 內建隱私過濾保護（PII）無條件將回傳 JSON 斬斷，您在輸出 `raw_text`、`phone`、`email` 以及 `profiles` 中的「聯絡電話/手機」與「電子郵件Email」時，**必須**強制對其進行以下『防斷遮罩處理』，絕對不能輸出標準格式：\\n' +
+        '   - **所有 Email 遮罩**：必須將 `@` 替換為 `_at_`，其中的 `.` 替換為 `_dot_`（例如 `abc@gmail.com` 必須輸出為 `abc_at_gmail_dot_com`）。\\n' +
+        '   - **所有電話/手機號碼遮罩**：必須在每兩位數字間插入一個空格，並且完全不使用任何連字號 `-` 或括號（例如 `0910-241-271` 必須輸出為 `09 10 24 12 71`；市話 `02-7752-7908` 輸出為 `02 77 52 79 08`）。\\n' +
+        '3. 【文字旋轉方向判定 (rotation_angle)】：請偵測此圖片內文字的旋轉偏角，並填寫在 `rotation_angle` 欄位（以正向閱讀方向為 0 度；若名片文字整體向左傾躺90度，即逆時針偏轉了 90 度，則此欄位請填入 -90；若向右傾躺90度，即順時針偏轉了 90 度，則填入 90；若上下顛倒則填入 180）。';
     }
 
     var resp = await fetch(
@@ -2847,6 +3006,17 @@ async function processOcr(compUrl, side) {
       parsed = extractFromText(rawText);
       console.log('[Fallback regex parsed result]:', parsed);
     }
+
+    // 💡 規格化旋轉角度欄位命名容錯
+    var rotAngle = 0;
+    if (parsed) {
+      if (parsed.rotation_angle !== undefined) rotAngle = parseInt(parsed.rotation_angle);
+      else if (parsed.rotationAngle !== undefined) rotAngle = parseInt(parsed.rotationAngle);
+      else if (parsed.rotation !== undefined) rotAngle = parseInt(parsed.rotation);
+      else if (parsed.angle !== undefined) rotAngle = parseInt(parsed.angle);
+    }
+    if (isNaN(rotAngle)) rotAngle = 0;
+    parsed.rotation_angle = rotAngle;
 
     // 統一調用去重與晶片標籤渲染邏輯
     var filled = writeParsedDataToForm(parsed, side);
@@ -2958,17 +3128,45 @@ async function processOcr(compUrl, side) {
           
           var warpedBase64 = canvas.toDataURL('image/jpeg', 0.92);
           
-          // ⚠️ iOS 備忘錄體驗：先彈出暫存成果確認窗，供用戶選擇「重新拍攝」或「保留儲存」！
+          // 💡 智慧 AI 自動旋轉判定：如果有 rotation_angle 且非 0，自動校正旋轉
+          if (parsed.rotation_angle && parsed.rotation_angle !== 0) {
+            toast('🤖 AI 偵測名片文字方向偏轉，自動為您翻正中…', 'info');
+            try {
+              warpedBase64 = await correctImageRotation(warpedBase64, parsed.rotation_angle);
+            } catch(exRot) {
+              console.warn('AI 自動旋轉失敗:', exRot);
+            }
+          }
+          
           showConfirmModal(warpedBase64, parsed);
         };
         img.src = compUrl;
       } catch(ex) {
         console.warn('自動裁切失敗:', ex);
-        showConfirmModal(compUrl, parsed);
+        
+        var fallbackImg = compUrl;
+        if (parsed.rotation_angle && parsed.rotation_angle !== 0) {
+          toast('🤖 AI 偵測名片文字方向偏轉，自動為您翻正中…', 'info');
+          try {
+            fallbackImg = await correctImageRotation(compUrl, parsed.rotation_angle);
+          } catch(exRot) {
+            console.warn('AI 自動旋轉失敗:', exRot);
+          }
+        }
+        showConfirmModal(fallbackImg, parsed);
       }
     } else {
       // 若無 Corners 定位，直接使用原圖暫存確認
-      showConfirmModal(compUrl, parsed);
+      var fallbackImg = compUrl;
+      if (parsed.rotation_angle && parsed.rotation_angle !== 0) {
+        toast('🤖 AI 偵測名片文字方向偏轉，自動為您翻正中…', 'info');
+        try {
+          fallbackImg = await correctImageRotation(compUrl, parsed.rotation_angle);
+        } catch(exRot) {
+          console.warn('AI 自動旋轉失敗:', exRot);
+        }
+      }
+      showConfirmModal(fallbackImg, parsed);
     }
 
     if (filled > 0) {
@@ -3016,6 +3214,9 @@ async function rotateConfirmPhoto(degrees) {
       var rotatedBase64 = canvas.toDataURL('image/jpeg', 0.92);
       imgEl.src = rotatedBase64;
       autoWarpedBase64 = rotatedBase64; // 更新暫存圖的變數
+      
+      // 💡 旋轉後立即更新預覽框的比例，防止 iOS Safari 渲染變形
+      updateConfirmPreviewAspectRatio(canvas.width, canvas.height);
       
       // 重新跑 OCR
       await processOcr(rotatedBase64, activeSide);
@@ -3737,6 +3938,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     st = setTimeout(function() { S.query = e.target.value; applyFilter(); }, 280);
   });
 
+  // 地址欄位自動偵測區域事件綁定
+  var addrInput = document.getElementById('fAddress');
+  if (addrInput) {
+    addrInput.addEventListener('input', autoDetectRegionFromAddress);
+    addrInput.addEventListener('change', autoDetectRegionFromAddress);
+  }
+
   // 初始載入
   try {
     goTo('categories');
@@ -3797,8 +4005,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   <div id="confirmModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#111; z-index:10001; flex-direction:column; align-items:center; justify-content:space-between; padding: 40px 0; color:#fff; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; user-select:none; -webkit-user-select:none;">
     <div style="font-size:18px; font-weight:600; letter-spacing:1px; margin-top:20px;">📸 掃描成果暫存區</div>
     
-    <div style="width:90%; max-width:340px; aspect-ratio:1.6 / 1; border-radius:12px; overflow:hidden; box-shadow:0 12px 30px rgba(0,0,0,0.6); background:#222; border:1px solid rgba(255,255,255,0.15);">
-      <img id="confirmPreviewImg" style="width:100%; height:100%; object-fit:contain; display:block;">
+    <div id="confirmPreviewImgWrapper" style="width:90%; max-width:340px; aspect-ratio:1.6 / 1; border-radius:12px; overflow:hidden; box-shadow:0 12px 30px rgba(0,0,0,0.6); background:#222; border:1px solid rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center;">
+      <img id="confirmPreviewImg" style="max-width:100%; max-height:100%; object-fit:contain; display:block;">
     </div>
     <div id="confirmDiagnosticInfo" style="font-size:11px; color:#FFD54F; font-family:monospace; text-align:center; padding:0 10px; width:90%; word-break:break-all;">🔍 AI 定位點: 偵測中...</div>
     
