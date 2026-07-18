@@ -627,7 +627,7 @@
         <div class="glass" style="padding:var(--sp-xl);text-align:center;border-radius:var(--r-lg);">
           <div style="font-size:36px;margin-bottom:8px;">🪪</div>
           <div style="font-size:17px;font-weight:900;margin-bottom:4px;">善緣名片王</div>
-          <div style="font-size:12px;color:var(--text-hint);">v2.3 (Build 20260717-v3) · SHANYUAN CARD MASTER</div>
+          <div style="font-size:12px;color:var(--text-hint);">v2.4 (Build 20260717-v4) · SHANYUAN CARD MASTER</div>
           <div style="font-size:12px;color:var(--text-hint);margin-top:12px;line-height:1.8;">
             資料僅儲存於本機<br>不傳送至任何伺服器
           </div>
@@ -2125,9 +2125,9 @@ function decodePIIMask(str, type) {
     s = s.replace(/\s+/g, '');
   }
   
-  // 2. 還原電話遮罩：移除所有空格與底線，並在合適位置補上連字號
+  // 2. 還原電話遮罩：移除所有空格、底線與連字號，並在合適位置補上連字號
   if (type === 'phone') {
-    s = s.replace(/[\s_]+/g, ''); // 移除空格與底線
+    s = s.replace(/[\s_-]+/g, ''); // 移除空格、底線與連字號
     // 手機格式化 0910241271 -> 0910-241-271
     if (/^09\d{8}$/.test(s)) {
       s = s.substring(0, 4) + '-' + s.substring(4, 7) + '-' + s.substring(7);
@@ -2136,6 +2136,11 @@ function decodePIIMask(str, type) {
     } else if (/^0[3-9]\d{7,8}$/.test(s)) {
       s = s.substring(0, 3) + '-' + s.substring(3, 6) + '-' + s.substring(6);
     }
+  }
+
+  // 3. 還原地址遮罩：移除所有空格字元，使其還原為標準台灣地址
+  if (type === 'address') {
+    s = s.replace(/\s+/g, '');
   }
   return s;
 }
@@ -2167,7 +2172,7 @@ function writeParsedDataToForm(parsed, side) {
             title: item.title ? String(item.title).trim() : '',
             phone: item.phone ? decodePIIMask(item.phone, 'phone') : '',
             email: item.email ? decodePIIMask(item.email, 'email') : '',
-            address: item.address ? String(item.address).trim() : ''
+            address: item.address ? decodePIIMask(item.address, 'address') : ''
           });
         } else if (item && typeof item === 'string') {
           // AI 稀有情況下回傳字串陣列時之安全相容
@@ -2176,7 +2181,7 @@ function writeParsedDataToForm(parsed, side) {
             title: parsed.title ? String(parsed.title).trim() : '',
             phone: parsed.phone ? decodePIIMask(parsed.phone, 'phone') : '',
             email: parsed.email ? decodePIIMask(parsed.email, 'email') : '',
-            address: parsed.address ? String(parsed.address).trim() : ''
+            address: parsed.address ? decodePIIMask(parsed.address, 'address') : ''
           });
         }
       });
@@ -2190,7 +2195,7 @@ function writeParsedDataToForm(parsed, side) {
       var titles = splitFlatVal(parsed.title);
       var phones = splitFlatVal(parsed.phone).map(function(p){ return decodePIIMask(p, 'phone'); });
       var emails = splitFlatVal(parsed.email).map(function(e){ return decodePIIMask(e, 'email'); });
-      var addresses = splitFlatVal(parsed.address);
+      var addresses = splitFlatVal(parsed.address).map(function(a){ return decodePIIMask(a, 'address'); });
       
       var count = Math.max(companies.length, titles.length, 1);
       for (var i = 0; i < count; i++) {
@@ -2209,7 +2214,7 @@ function writeParsedDataToForm(parsed, side) {
       if (p && typeof p === 'object') {
         if (!p.phone && parsed.phone) p.phone = decodePIIMask(parsed.phone, 'phone');
         if (!p.email && parsed.email) p.email = decodePIIMask(parsed.email, 'email');
-        if (!p.address && parsed.address) p.address = parsed.address;
+        if (!p.address && parsed.address) p.address = decodePIIMask(parsed.address, 'address');
       }
     });
 
@@ -2857,12 +2862,12 @@ async function processOcr(compUrl, side) {
     // 支持多公司與多重身分智慧提取，引導 Gemini 輸出關聯群組結構（profiles 陣列）與原始文字段落（raw_text）
     var prompt = '';
     if (side === 'front') {
-      prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\\n' +
+      prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含 any 說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\\n' +
         '{\\n' +
-        '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"],\\n' +
+        '  "raw_text": ["請在此陣列中完整列出偵測到的每一行文字或資訊片段。注意：即使在此陣列中，所有的電話、Email 與地址也必須依照下方的【極重要安全避讓須知】進行 100% 遮罩輸出，絕對不可輸出原始明文格式，否則會被 Google 隱私系統阻斷！"],\\n' +
         '  "rotation_angle": 0,\\n' +
         '  "name": "姓名（務必去除字元間的空格，如「劉炳界」）",\\n' +
-        '  "company": "所有公司或組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\\n' +
+        '  "company": "所有公司 or 組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\\n' +
         '  "title": "職稱（以 / 分隔）",\\n' +
         '  "phone": "電話/手機（以 / 分隔，務必細心辨識出角落極小的字）",\\n' +
         '  "email": "電子郵件（務必去除所有空格與換行，以 / 分隔）",\\n' +
@@ -2886,24 +2891,25 @@ async function processOcr(compUrl, side) {
         '【重要 OCR 注意事項】：\\n' +
         '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！\\n' +
         '2. 【邊界四角定位】：請仔細偵測圖片中「白底名片本身」的四個物理邊角，並以坐標百分比（0~1000 之間的整數，圖片左上角為 [0,0], 右上角為 [1000,0], 右下角為 [1000,1000], 左下角為 [0,1000]）輸出在 corners 屬性中，用以進行 3D 視角拉平去背。請務必精準找出卡片的真正邊界，排除周邊的桌面背景！\\n' +
-        '3. 【重要安全避讓須知（防截斷 PII 規則）】：為了防範 Google 內建隱私過濾保護（PII）無條件將回傳 JSON 斬斷，您在輸出 `raw_text`、`phone`、`email` 以及 `profiles` 中的「聯絡電話/手機」與「電子郵件Email」時，**必須**強制對其進行以下『防斷遮罩處理』，絕對不能輸出標準格式：\\n' +
-        '   - **所有 Email 遮罩**：必須將 `@` 替換為 `_at_`，其中的 `.` 替換為 `_dot_`（例如 `abc@gmail.com` 必須輸出為 `abc_at_gmail_dot_com`）。\n' +
-        '   - **所有電話/手機號碼遮罩**：必須在每兩位數字間插入一個空格，並且完全不使用 any 連字號 `-` 或括號（例如 `0910-241-271` 必須輸出為 `09 10 24 12 71`；市話 `02-7752-7908` 輸出為 `02 77 52 79 08`）。\n' +
+        '3. 【極重要安全避讓須知（防截斷 PII 規則，必須 100% 遵守）】：為了防範 Google 內建隱私過濾保護（PII）無條件將回傳 JSON 斬斷，不論是 `raw_text`、`phone`、`email`、`address` 或是 `profiles` 的任何欄位，只要出現電話、電子信箱、地址，都必須 100% 強制進行以下遮罩處理：\\n' +
+        '   - **所有 Email 遮罩**：必須將 `@` 替換為 `_at_`，其中的 `.` 替換為 `_dot_`（例如 `abc@gmail.com` 必須輸出為 `abc_at_gmail_dot_com`）。\\n' +
+        '   - **所有電話/手機號碼遮罩**：必須在每一個單獨數字間插入一個空格，並且完全不使用 any 連字號 `-` 或括號（例如 `0910-241-271` 必須輸出為 `0 9 1 0 2 4 1 2 7 1`；市話 `02-7752-7908` 輸出為 `0 2 7 7 5 2 7 9 0 8`）。\\n' +
+        '   - **所有地址遮罩**：必須在每一個中文字、英文字母、數字字元之間都插入一個空格，並且完全不使用 any 連字號 `-` 或 `#`（例如 `116052台北市文山區景美街1-3號` 必須輸出為 `1 1 6 0 5 2 台 北 市 文 山 區 景 美 街 1 之 3 號`，將連字號改為中文的「之」）。\\n' +
         '4. 【文字旋轉方向判定 (rotation_angle)】：請偵測此圖片內文字的旋轉偏角，並填寫在 `rotation_angle` 欄位：若名片頂部朝上（文字正常，無須旋轉）請填入 0；若名片頂部朝左（文字向左橫躺，需向右順時針旋轉 90 度修正）請填入 90；若名片頂部朝右（文字向右橫躺，需向左逆時針旋轉 90 度修正）請填入 -90；若上下顛倒請填入 180。請仔細觀察名片的排版朝向做出精準判定，切勿盲目填 0！';
     } else {
       // 反面專用：不要求 Corners 定位，從而極大地簡化 JSON，100% 避免長度與 PII 安全判定導致的截斷（還原昨日 933d9aa 成功版 prompt 結構）
-      prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\n' +
+      prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含 any 說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\n' +
         '{\n' +
-        '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"],\n' +
+        '  "raw_text": ["請在此陣列中完整列出偵測到的每一行文字或資訊片段。注意：即使在此陣列中，所有的電話、Email 與地址也必須依照下方的【極重要安全避讓須知】進行 100% 遮罩輸出，絕對不可輸出原始明文格式，否則會被 Google 隱私系統阻斷！"],\n' +
         '  "rotation_angle": 0,\n' +
         '  "name": "姓名（務必去除字元間的空格，如「劉炳界」）",\n' +
-        '  "company": "所有公司或組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\n' +
+        '  "company": "所有公司 or 組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\n' +
         '  "title": "職稱（以 / 分隔）",\n' +
         '  "phone": "電話/手機（以 / 分隔，務必細心辨識出角落極小的字）",\n' +
         '  "email": "電子郵件（務必去除所有空格與換行，以 / 分隔）",\n' +
         '  "address": "地址（以 / 分隔）",\n' +
         '  "profiles": [\n' +
-        '    {\\n' +
+        '    {\n' +
         '      "company": "此身分的公司/組織名稱",\n' +
         '      "title": "此身分的職稱",\n' +
         '      "phone": "此身分的電話（多個以 / 分隔）",\n' +
@@ -2914,9 +2920,10 @@ async function processOcr(compUrl, side) {
         '}\n' +
         '【重要 OCR 注意事項】：\n' +
         '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！\n' +
-        '2. 【重要安全避讓須知（防截斷 PII 規則）】：為了防範 Google 內建隱私過濾保護（PII）無條件將回傳 JSON 斬斷，您在輸出 `raw_text`、`phone`、`email` 以及 `profiles` 中的「聯絡電話/手機」與「電子郵件Email」時，**必須**強制對其進行以下『防斷遮罩處理』，絕對不能輸出標準格式：\n' +
+        '2. 【極重要安全避讓須知（防截斷 PII 規則，必須 100% 遵守）】：為了防範 Google 內建隱私過濾保護（PII）無條件將回傳 JSON 斬斷，不論是 `raw_text`、`phone`、`email`、`address` 或是 `profiles` 的任何欄位，只要出現電話、電子信箱、地址，都必須 100% 強制進行以下遮罩處理：\n' +
         '   - **所有 Email 遮罩**：必須將 `@` 替換為 `_at_`，其中的 `.` 替換為 `_dot_`（例如 `abc@gmail.com` 必須輸出為 `abc_at_gmail_dot_com`）。\n' +
-        '   - **所有電話/手機號碼遮罩**：必須在每兩位數字間插入一個空格，並且完全不使用 any 連字號 `-` 或括號（例如 `0910-241-271` 必須輸出為 `09 10 24 12 71`；市話 `02-7752-7908` 輸出為 `02 77 52 79 08`）。\n' +
+        '   - **所有電話/手機號碼遮罩**：必須在每一個單獨數字間插入一個空格，並且完全不使用 any 連字號 `-` 或括號（例如 `0910-241-271` 必須輸出為 `0 9 1 0 2 4 1 2 7 1`；市話 `02-7752-7908` 輸出為 `0 2 7 7 5 2 7 9 0 8`）。\n' +
+        '   - **所有地址遮罩**：必須在每一個中文字、英文字母、數字字元之間都插入一個空格，並且完全不使用 any 連字號 `-` 或 `#`（例如 `116052台北市文山區景美街1-3號` 必須輸出為 `1 1 6 0 5 2 台 北 市 文 山 區 景 美 街 1 之 3 號`，將連字號改為中文的「之」）。\n' +
         '3. 【文字旋轉方向判定 (rotation_angle)】：請偵測此圖片內文字的旋轉偏角，並填寫在 `rotation_angle` 欄位：若名片頂部朝上（文字正常，無須旋轉）請填入 0；若名片頂部朝左（文字向左橫躺，需向右順時針旋轉 90 度修正）請填入 90；若名片頂部朝右（文字向右橫躺，需向左逆時針旋轉 90 度修正）請填入 -90；若上下顛倒請填入 180。請仔細觀察名片的排版朝向做出精準判定，切勿盲目填 0！';
     }
 
