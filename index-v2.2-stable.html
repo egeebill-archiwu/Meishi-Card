@@ -1,0 +1,4041 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0A0A0A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="善緣名片王">
+  <meta name="description" content="善緣名片王 — 智慧名片管理平台，掃描建檔、AI搜尋、雲端備份">
+  <title>善緣名片王｜智慧名片管理</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <style>
+    /* CSS 3D 卡片翻轉效果 */
+    .flip-card.flipped .flip-card-inner {
+      transform: rotateY(180deg);
+    }
+    /* Google Lens 智慧文字片段氣泡樣式 */
+    .raw-text-pill {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      outline: none;
+      user-select: none;
+    }
+    .raw-text-pill:hover {
+      background: var(--gray-100);
+      border-color: var(--black);
+    }
+    #pillMenu button:hover {
+      background: var(--gray-100) !important;
+      color: var(--black) !important;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+<!-- ════════════════════════════════════════
+     定義底部導覽列等向量圖標所使用的金屬金漸層
+════════════════════════════════════════ -->
+<svg style="width:0; height:0; position:absolute; pointer-events:none; visibility:hidden;">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5BA73" />
+      <stop offset="100%" stop-color="#C5A880" />
+    </linearGradient>
+  </defs>
+</svg>
+
+<!-- 🤖 AI 辨識動畫載入遮罩 -->
+<div id="ocrLoadingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(5px); z-index:99999; flex-direction:column; align-items:center; justify-content:center; color:#fff;">
+  <div class="ocr-spinner" style="width:50px; height:50px; border:4px solid rgba(255,255,255,0.2); border-radius:50%; border-top-color:#00E676; animation:spin 1s linear infinite; margin-bottom:15px;"></div>
+  <div style="font-size:16px; font-weight:500; letter-spacing:1px;" id="ocrLoadingText">🤖 AI 正在辨識與分析名片中...</div>
+</div>
+
+<div id="app">
+
+  <!-- Toast -->
+  <div id="toast-root"></div>
+
+  <!-- ════════════════════════════════════════
+       頂部列（首頁專用，其他頁各自處理）
+  ════════════════════════════════════════ -->
+  <header class="top-bar" id="globalTopBar">
+    <div class="top-bar__row" style="display:flex; justify-content:space-between; align-items:center;">
+      <button class="back-btn" onclick="goTo('categories')" style="background:none; border:none; color:var(--text-sub); font-size:15px; cursor:pointer; display:flex; align-items:center; gap:4px; font-weight:bold; padding:0; margin:0;">
+        &lt; 分類
+      </button>
+      <div class="top-bar__brand" style="margin:0 auto; padding-right: 40px;">
+        <span class="top-bar__title" id="homePageTitle">全部名片</span>
+      </div>
+      <span class="top-bar__count" id="topBarCount">共 0 張</span>
+    </div>
+    <div class="search-wrap" style="margin-top:var(--sp-xs);">
+      <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="search-input" id="searchInput" type="search" placeholder="搜尋姓名、公司、備註…" autocomplete="off">
+    </div>
+  </header>
+
+  <!-- ════════════════════════════════════════
+       🏠 首頁
+  ════════════════════════════════════════ -->
+  <div class="page active" id="page-home">
+    <div class="main-content">
+
+      <!-- 生日提醒 -->
+      <div class="birthday-bar" id="birthdayBar" style="display:none">
+        <span style="font-size:20px">🎂</span>
+        <div>
+          <div class="birthday-bar__title" id="birthdayTitle">本月壽星</div>
+          <div class="birthday-bar__sub" id="birthdaySub"></div>
+        </div>
+      </div>
+
+      <!-- 統計 -->
+      <div class="stats-bar">
+        <div class="stat-box">
+          <div class="stat-box__num" id="statTotal">0</div>
+          <div class="stat-box__label">名片總數</div>
+        </div>
+        <div class="stat-box stat-box--accent">
+          <div class="stat-box__num" id="statBirthday">0</div>
+          <div class="stat-box__label">本月壽星</div>
+        </div>
+      </div>
+
+
+
+      <!-- 列表標頭 -->
+      <div class="section-header">
+        <span class="section-title">名片列表</span>
+        <span class="section-action" id="listCount">0 張</span>
+      </div>
+
+      <!-- 名片列表 -->
+      <div id="cardsList"></div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       ➕ 新增名片頁
+  ════════════════════════════════════════ -->
+  <div class="page" id="page-add">
+    <div class="page-header">
+      <button class="back-btn" onclick="goTo('home')">←</button>
+      <span class="page-title" id="addPageTitle">新增名片</span>
+    </div>
+    <div class="main-content">
+
+      <!-- 正反雙面拍照建檔區 -->
+      <div class="scan-container" style="display: flex; gap: 15px; margin-bottom: 20px;">
+        <!-- 正面拍攝 -->
+        <div class="scan-slot" style="flex: 1; display: flex; flex-direction: column; align-items: center; background: #fff; border: 2px dashed #ddd; border-radius: 12px; padding: 15px; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+          <label for="imgUpload" style="cursor: pointer; text-align: center; width: 100%; display: block; margin: 0;">
+            <div style="font-size: 28px; margin-bottom: 8px;">📸</div>
+            <div style="font-weight: 600; font-size: 14px; color: #333;">拍攝正面 (主要)</div>
+            <input type="button" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" onclick="openSmartCamera('front')">
+          </label>
+          <img id="scanPreview" alt="正面預覽" style="display:none; width: 100%; max-height: 150px; object-fit: contain; margin-top: 10px; border-radius: 6px;">
+          <!-- 正面旋轉控制 -->
+          <div id="rotateControl" style="display:none; justify-content:center; gap:8px; margin-top: 10px; width: 100%;">
+            <button type="button" class="btn btn--secondary btn--sm" onclick="rotatePreview(-90, 'front')" style="padding: 6px 4px; font-size: 11px; flex: 1;">🔄 左轉</button>
+            <button type="button" class="btn btn--secondary btn--sm" onclick="rotatePreview(90, 'front')" style="padding: 6px 4px; font-size: 11px; flex: 1;">🔄 右轉</button>
+          </div>
+        </div>
+
+        <!-- 反面拍攝 -->
+        <div class="scan-slot" style="flex: 1; display: flex; flex-direction: column; align-items: center; background: #fff; border: 2px dashed #ddd; border-radius: 12px; padding: 15px; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+          <label for="imgUploadBack" style="cursor: pointer; text-align: center; width: 100%; display: block; margin: 0;">
+            <div style="font-size: 28px; margin-bottom: 8px;">🔄</div>
+            <div style="font-weight: 600; font-size: 14px; color: #333;">拍攝反面 (選填)</div>
+            <input type="button" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" onclick="openSmartCamera('back')">
+          </label>
+          <img id="scanPreviewBack" alt="反面預覽" style="display:none; width: 100%; max-height: 150px; object-fit: contain; margin-top: 10px; border-radius: 6px;">
+          <!-- 反面旋轉控制 -->
+          <div id="rotateControlBack" style="display:none; justify-content:center; gap:8px; margin-top: 10px; width: 100%;">
+            <button type="button" class="btn btn--secondary btn--sm" onclick="rotatePreview(-90, 'back')" style="padding: 6px 4px; font-size: 11px; flex: 1;">🔄 左轉</button>
+            <button type="button" class="btn btn--secondary btn--sm" onclick="rotatePreview(90, 'back')" style="padding: 6px 4px; font-size: 11px; flex: 1;">🔄 右轉</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 降級備用隱藏拍照 input -->
+      <input type="file" id="imgUploadFallback" accept="image/*" capture="environment" style="display:none" onchange="handleImg(this, 'front')">
+      <input type="file" id="imgUploadBackFallback" accept="image/*" capture="environment" style="display:none" onchange="handleImg(this, 'back')">
+      
+      <!-- 底色辨識結果 -->
+      <div class="color-detected" id="colorDetected">
+        <span class="color-dot" id="colorDot" style="width:12px;height:12px;border-radius:50%;"></span>
+        <span>名片底色：</span>
+        <strong id="colorLabel">—</strong>
+      </div>
+
+      
+      <!-- API Key 缺失警告條 -->
+      <div id="apiKeyWarning" style="display:none; background:#FFEAEA; color:#D32F2F; border:1px solid #FFCDD2; padding:12px; border-radius:8px; margin-bottom:15px; font-size:13px; font-weight:600; text-align:center;">
+        ⚠️ 偵測到新網域/LocalStorage 為空，請先前往右下角「設定」填入您的 Gemini API Key，以啟用 AI 自動辨識！
+      </div>
+
+      <!-- 表單 -->
+      <form id="addForm" onsubmit="submitCard(event)">
+        <input type="hidden" id="fBgHex" name="bgHex">
+        <input type="hidden" id="fEditId" name="editId">
+
+        <!-- 👔 選擇名片身分組 (動態產生的主下拉選單) -->
+        <div id="profileSelectorContainer" style="display:none; background:var(--gray-50); border:1px solid var(--border); padding:12px; border-radius:var(--r-md); margin-bottom:15px;">
+          <label class="form-label" style="font-weight:bold; color:var(--text-main); display:flex; align-items:center; gap:4px; margin-bottom:6px;">
+            👔 偵測到多重身份，請選擇要套用的名片資訊：
+          </label>
+          <select class="form-select" id="fProfileSelector" style="width:100%; height:38px; border:1px solid var(--border); border-radius:var(--r-md); background-color:var(--white); font-size:13px; outline:none; padding:0 10px;"></select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="fName">姓名 *</label>
+            <input class="form-input" id="fName" name="name" placeholder="王小明" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="fTitle">職稱</label>
+            <input class="form-input" id="fTitle" name="title" placeholder="業務經理">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="fCompany">公司</label>
+          <input class="form-input" id="fCompany" name="company" placeholder="善緣企業有限公司">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="fPhone">電話</label>
+          <input class="form-input" id="fPhone" name="phone" type="tel" placeholder="02-1234-5678">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="fEmail">Email</label>
+          <input class="form-input" id="fEmail" name="email" type="email" placeholder="name@co.com">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="fAddress">地址</label>
+          <input class="form-input" id="fAddress" name="address" placeholder="台北市中正區…">
+        </div>
+
+        <!-- 🔍 智慧偵測文字段落 (動態產生的 Google Lens 點選氣泡區) -->
+        <div id="rawTextPillsContainer" style="display:none; background:var(--gray-50); border:1px dashed var(--border); padding:15px; border-radius:var(--r-md); margin-bottom:15px; position:relative;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <label class="form-label" style="font-weight:bold; color:var(--text-main); margin-bottom:0; display:flex; align-items:center; gap:4px;">
+              🔍 AI 偵測到的文字片段 (點擊可快速填入欄位)：
+            </label>
+            <button type="button" onclick="document.getElementById('rawTextPillsContainer').style.display='none'" style="background:none; border:none; font-size:12px; color:var(--text-sub); cursor:pointer; padding:4px 8px; border-radius:var(--r-sm); transition:background 0.15s ease;">
+              ✖ 隱藏
+            </button>
+          </div>
+          <div id="rawTextPills" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="fIndustry">業種</label>
+            <select class="form-select" id="fIndustry" name="industry" onchange="toggleCustomIndustry()">
+              <option value="">選擇業種</option>
+              <option value="it">💻 IT科技</option>
+              <option value="finance">💰 金融</option>
+              <option value="medical">🏥 醫療</option>
+              <option value="food">🍽️ 餐飲</option>
+              <option value="legal">⚖️ 法律</option>
+              <option value="edu">🎓 教育</option>
+              <option value="retail">🛍️ 零售</option>
+              <option value="real">🏢 不動產</option>
+              <option value="media">📺 媒體</option>
+              <option value="mfg">🏭 製造</option>
+              <option value="travel">✈️ 旅遊</option>
+              <option value="beauty">💄 美容</option>
+              <option value="other">📋 其他</option>
+            </select>
+            <input class="form-input" id="fIndustryCustom" type="text" placeholder="請輸入自訂業種" style="display:none; margin-top:8px;">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="fRegion">區域</label>
+            <select class="form-select" id="fRegion" name="region">
+              <option value="">選擇區域</option>
+              <option>台北市</option><option>新北市</option><option>桃園市</option>
+              <option>台中市</option><option>台南市</option><option>高雄市</option>
+              <option>基隆市</option><option>新竹市</option><option>嘉義市</option>
+              <option>新竹縣</option><option>苗栗縣</option><option>彰化縣</option>
+              <option>南投縣</option><option>雲林縣</option><option>嘉義縣</option>
+              <option>屏東縣</option><option>宜蘭縣</option><option>花蓮縣</option>
+              <option>台東縣</option><option>澎湖縣</option><option>金門縣</option>
+              <option>連江縣</option><option>海外</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="fBirthday">生日</label>
+            <input class="form-input" id="fBirthday" name="birthday" type="date">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="fBgColor">名片底色</label>
+            <input class="form-input" id="fBgColor" name="bgColor" placeholder="自動辨識" readonly>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="fNote">✨ 特色備註</label>
+          <textarea class="form-textarea" id="fNote" name="note" rows="3"
+            placeholder="認識場合、印象、特別備忘…"></textarea>
+        </div>
+
+        <button class="btn btn--primary btn--block" id="submitBtn" type="submit" style="margin-bottom: 90px;">
+          儲存名片
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       📋 名片詳細頁
+  ════════════════════════════════════════ -->
+  <div class="page" id="page-detail">
+    <div class="page-header">
+      <button class="back-btn" onclick="goTo('home')">←</button>
+      <span class="page-title">名片詳細</span>
+    </div>
+    <div class="main-content" style="padding-top:0">
+
+      <div class="detail-hero">
+        <div class="detail-thumb" id="detailThumb">尚無圖片</div>
+        <div class="detail-name" id="detailName">—</div>
+        <div class="detail-sub"  id="detailSub">—</div>
+      </div>
+
+      <div style="padding:var(--sp-md)">
+
+        <!-- 👔 選擇名片身分組 (詳細頁唯讀主下拉選單) -->
+        <div id="detailProfileSelectorContainer" style="display:none; background:var(--gray-50); border:1px solid var(--border); padding:12px; border-radius:var(--r-md); margin-bottom:15px;">
+          <label class="form-label" style="font-weight:bold; color:var(--text-main); display:flex; align-items:center; gap:4px; margin-bottom:6px; font-size:12px;">
+            👔 切換檢視名片身分：
+          </label>
+          <select class="form-select" id="dProfileSelector" style="width:100%; height:38px; border:1px solid var(--border); border-radius:var(--r-md); background-color:var(--white); font-size:13px; outline:none; padding:0 10px;"></select>
+        </div>
+
+        <!-- 聯絡資訊 -->
+        <div class="info-section">
+          <div class="info-section__title">聯絡資訊</div>
+          <div class="info-row">
+            <span class="info-row__icon">📞</span>
+            <span class="info-row__label">電話</span>
+            <span class="info-row__val" id="dPhone">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row__icon">✉️</span>
+            <span class="info-row__label">Email</span>
+            <span class="info-row__val" id="dEmail">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row__icon">📍</span>
+            <span class="info-row__label">地址</span>
+            <span class="info-row__val" id="dAddress">—</span>
+          </div>
+        </div>
+
+        <!-- 分類資訊 -->
+        <div class="info-section">
+          <div class="info-section__title">分類資訊</div>
+          <div class="info-row">
+            <span class="info-row__icon">🏷️</span>
+            <span class="info-row__label">業種</span>
+            <span class="info-row__val" id="dIndustry">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row__icon">🗺️</span>
+            <span class="info-row__label">區域</span>
+            <span class="info-row__val" id="dRegion">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row__icon">🎂</span>
+            <span class="info-row__label">生日</span>
+            <span class="info-row__val" id="dBirthday">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row__icon">🎨</span>
+            <span class="info-row__label">名片底色</span>
+            <span class="info-row__val" id="dBgColor">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row__icon">📅</span>
+            <span class="info-row__label">建立時間</span>
+            <span class="info-row__val" id="dCreated">—</span>
+          </div>
+        </div>
+
+        <!-- 特色備註 -->
+        <div class="note-box" id="noteBox" style="display:none">
+          <div class="note-box__label"><span>✨</span> 特色備註</div>
+          <div class="note-box__text" id="dNote"></div>
+        </div>
+
+        <!-- 操作按鈕 -->
+        <div class="detail-actions">
+          <button class="btn btn--outline" onclick="editCard()">✏️ 編輯</button>
+          <button class="btn btn--danger"  onclick="deleteCard()">🗑️ 刪除</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       🤖 AI 搜尋頁
+  ════════════════════════════════════════ -->
+  <div class="page" id="page-ai">
+    <div class="main-content" style="padding-top:0; padding-bottom:80px">
+
+      <div class="ai-header">
+        <div class="ai-badge">AI 搜尋</div>
+        <div class="ai-title">用說的就能找到</div>
+        <div class="ai-sub">輸入模糊描述，如「藍色底的名片」或「台南的餐飲朋友」</div>
+      </div>
+
+      <div class="ai-input-row">
+        <input class="ai-input" id="aiInput" placeholder="描述您記得的特徵…" autocomplete="off"
+          onkeydown="if(event.key==='Enter')doSearch()">
+        <button class="ai-go" onclick="doSearch()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+
+      <div class="suggestions">
+        <div class="suggestions__label">熱門查詢</div>
+        <div class="chips-wrap">
+          <button class="suggestion-chip" onclick="suggest('藍色底的名片')">藍色底的名片</button>
+          <button class="suggestion-chip" onclick="suggest('做餐飲的朋友')">做餐飲的朋友</button>
+          <button class="suggestion-chip" onclick="suggest('台南的客戶')">台南的客戶</button>
+          <button class="suggestion-chip" onclick="suggest('IT科技業')">IT科技業</button>
+          <button class="suggestion-chip" onclick="suggest('本月壽星')">本月壽星</button>
+          <button class="suggestion-chip" onclick="suggest('法律顧問')">法律顧問</button>
+          <button class="suggestion-chip" onclick="suggest('日本客戶')">日本客戶</button>
+          <button class="suggestion-chip" onclick="suggest('金融保險')">金融保險</button>
+        </div>
+      </div>
+
+      <div class="ai-result-bar" id="aiResultBar"></div>
+      <div style="padding:0 var(--sp-md)" id="aiResultList"></div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       🪪 數位名片頁
+  ════════════════════════════════════════ -->
+  <div class="page" id="page-mycard">
+    <div class="main-content" style="padding:0; padding-bottom:80px">
+
+      <!-- 名片預覽 -->
+      <div class="business-card">
+        <div class="card-left-line"></div>
+        <div class="card-info">
+          <div class="card-name" id="mcPreviewName">您的姓名</div>
+          <div class="card-title" id="mcPreviewTitle">職稱 · 公司</div>
+          <div class="card-contact" id="mcPreviewContact" style="font-size:12px; color:var(--text-sub); opacity:0.8; margin-top:14px; white-space:pre-line; line-height:1.8;">填寫下方表單即可更新</div>
+        </div>
+        <svg class="card-lotus-icon" viewBox="0 0 24 24">
+          <path d="M12 21c-2-2.5-5-4-5-7.5 0-2 1.5-3.5 3.5-3.5.8 0 1.5.3 1.5.3s.7-.3 1.5-.3c2 0 3.5 1.5 3.5 3.5 0 3.5-3 5-5 7.5z"/>
+          <path d="M12 21c-4-1-7-3.5-7-7 0-3 2-5 5-5 .5 0 1 .1 1 .1s.5-.1 1-.1c3 0 5 2 5 5 0 3.5-3 6-7 7z" opacity="0.7"/>
+          <path d="M12 21c2.5-3.5 2.5-6.5.5-8.5M12 21c-2.5-3.5-2.5-6.5-.5-8.5" opacity="0.5"/>
+        </svg>
+      </div>
+
+      <!-- 表單與 QR 複合佈局 -->
+      <div class="form-wrap" style="padding-top:0;">
+        <form id="myCardForm" onsubmit="saveMyCard(event)">
+          <div class="layout-row" style="display:flex; gap:16px; margin-bottom:16px; align-items:stretch;">
+            <!-- 左側漂浮 QR 卡片 -->
+            <div class="qr-card" style="background-color: var(--white); border-radius:20px; padding:16px; width:48%; box-shadow: var(--ambient-shadow); display:flex; flex-direction:column; align-items:center; justify-content:center; border: 1px solid var(--border);">
+              <div class="qr-box" id="qrBox" style="width:100%; aspect-ratio:1; background-color:#FFF; border:none; display:flex; align-items:center; justify-content:center; margin-bottom:10px; padding:0;">填寫後生成</div>
+              <div class="qr-text" style="font-size:11px; font-weight:bold; color:var(--text-main); margin-bottom:8px; text-align:center; white-space:nowrap;">My QR Code 名片</div>
+              <button type="button" class="btn btn--outline btn--sm" onclick="shareMyCard()" style="background-color:var(--obsidian-dark); color:#FFFFFF; border:none; padding:6px 12px; border-radius:12px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:4px; font-weight:600; box-shadow:0 2px 6px rgba(0,0,0,0.15);">
+                📤 分享
+              </button>
+            </div>
+
+            <!-- 右側姓名與職稱表單區 -->
+            <div class="form-area" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; gap:12px;">
+              <div class="form-group" style="margin-bottom:0; flex:1; display:flex; flex-direction:column; justify-content:center;">
+                <label class="form-label" style="font-weight:bold; color:var(--text-main); margin-bottom:6px;">姓名</label>
+                <input class="form-input name-input" id="mcName" name="name" placeholder="王小明" style="margin-top:auto;">
+              </div>
+              <div class="form-group" style="margin-bottom:0; flex:1; display:flex; flex-direction:column; justify-content:center;">
+                <label class="form-label" style="font-weight:bold; color:var(--text-main); margin-bottom:6px;">職稱</label>
+                <input class="form-input" id="mcTitle" name="title" placeholder="業務經理" style="margin-top:auto;">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" style="font-weight:bold; color:var(--text-main);">公司</label>
+            <input class="form-input" id="mcCompany" name="company" placeholder="善緣企業有限公司">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" style="font-weight:bold; color:var(--text-main);">電話</label>
+              <input class="form-input" id="mcPhone" name="phone" type="tel" placeholder="0912-345-678">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="font-weight:bold; color:var(--text-main);">Email</label>
+              <input class="form-input" id="mcEmail" name="email" type="email" placeholder="me@co.com">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-weight:bold; color:var(--text-main);">地址</label>
+            <input class="form-input" id="mcAddress" name="address" placeholder="台北市…">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-weight:bold; color:var(--text-main);">網站</label>
+            <input class="form-input" id="mcWebsite" name="website" type="url" placeholder="https://www.co.com">
+          </div>
+          <button class="btn btn--primary btn--block" type="submit" style="margin-bottom:90px; height:48px; background:var(--amber-gold-gradient); color:#FFFFFF; border:none; border-radius:14px; font-size:15px; font-weight:bold; letter-spacing:1px; box-shadow:0 6px 20px rgba(212, 163, 83, 0.3);">更新數位名片</button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       ⚙️ 設定頁
+  ════════════════════════════════════════ -->
+  <div class="page" id="page-settings">
+    <div class="main-content">
+
+      <div class="setting-group">
+        <div class="setting-group__title">分類管理</div>
+        <div class="setting-item" onclick="goTo('categories')">
+          <div class="setting-item__icon">🏷️</div>
+          <div class="setting-item__body">
+            <div class="setting-item__name">業種與分類管理</div>
+            <div class="setting-item__desc">自訂分類順序、增減、改名</div>
+          </div>
+          <span class="setting-item__arr">›</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-group__title">資料匯出</div>
+        <div class="setting-item" onclick="doExportCSV()">
+          <div class="setting-item__icon">📊</div>
+          <div class="setting-item__body">
+            <div class="setting-item__name">匯出 CSV</div>
+            <div class="setting-item__desc">可用 Excel 開啟</div>
+          </div>
+          <span class="setting-item__arr">›</span>
+        </div>
+        <div class="setting-item" onclick="doExportVCard()">
+          <div class="setting-item__icon">📱</div>
+          <div class="setting-item__body">
+            <div class="setting-item__name">匯出 vCard (.vcf)</div>
+            <div class="setting-item__desc">可匯入手機通訊錄</div>
+          </div>
+          <span class="setting-item__arr">›</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-group__title">AI 功能（選填）</div>
+        <div class="glass" style="padding:var(--sp-md);margin-bottom:6px;border-radius:var(--r-lg);">
+
+          <!-- 狀態列 -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-md);">
+            <div style="font-size:14px;font-weight:700;">Gemini API Key</div>
+            <div id="apiStatus" style="font-size:12px;padding:3px 10px;border-radius:var(--r-full);background:var(--gray-100);color:var(--text-hint);">
+              ⭕ 未設定
+            </div>
+          </div>
+
+          <!-- 功能說明 -->
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:var(--sp-md);">
+            <div style="font-size:13px;color:var(--text-sub);display:flex;align-items:center;gap:6px;">
+              <span id="ocrIcon">⭕</span> 名片拍照自動辨識文字（OCR）
+            </div>
+            <div style="font-size:13px;color:var(--text-sub);display:flex;align-items:center;gap:6px;">
+              <span id="aiIcon">⭕</span> AI 自然語言搜尋（精準模式）
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="api-field-wrap">
+              <input class="form-input" type="password" id="geminiKey" placeholder="貼上您的 Gemini API Key（AIzaSy…）" style="padding-right:36px">
+              <button class="api-eye" type="button" onclick="toggleEye('geminiKey')">👁️</button>
+            </div>
+          </div>
+          <!-- 模型選單 -->
+          <div class="form-group" style="margin-top:var(--sp-md);margin-bottom:var(--sp-md);">
+            <label class="form-label">指定 AI 模型 (Gemini Model)</label>
+            <select class="form-input" id="geminiModel" onchange="saveGeminiModel()" style="border-radius:var(--r-md);height:38px;padding:0 var(--sp-sm);width:100%;font-size:13px;">
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (推薦：最新極速型)</option>
+            </select>
+          </div>
+
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn--primary btn--sm" style="flex:1" onclick="saveGeminiKey()">儲存 API Key</button>
+            <button class="btn btn--outline btn--sm" style="flex:1" type="button" onclick="testApiKey()">測試連線</button>
+          </div>
+
+          <!-- 即時連線報告顯示區 -->
+          <div id="apiTestReport" style="display:none;margin-top:12px;padding:var(--sp-md);border-radius:var(--r-md);font-size:12px;line-height:1.6;border:1px solid var(--border);"></div>
+
+          <p style="font-size:12px;color:var(--text-hint);margin-top:10px;line-height:1.7;">
+            ▸ 前往 <strong>aistudio.google.com</strong> 即可免費取得<br>
+            ▸ Key 只儲存在本機，不會上傳至任何伺服器<br>
+            ▸ 未填寫時仍可使用本地關鍵字搜尋（免費）
+          </p>
+        </div>
+
+      </div>
+
+      <!-- 🛠️ 除錯診斷日誌 -->
+      <div class="setting-group" id="debugLogGroup">
+        <div class="setting-group__title">🤖 AI 辨識日誌 (除錯偵錯)</div>
+        <div class="glass" style="padding:var(--sp-md);border-radius:var(--r-lg);">
+          <div style="font-size:12px;color:var(--text-sub);margin-bottom:8px;line-height:1.6;">
+            此處會保留最後一次名片掃描時，Gemini API 回傳的原始文字內容。如遇辨識不全，可展開複製以利排查問題。
+          </div>
+          <button class="btn btn--outline btn--sm" style="width:100%;" onclick="toggleDebugLog()" id="btnDebugToggle">展開日誌</button>
+          <div id="debugLogArea" style="display:none;margin-top:10px;">
+            <textarea id="txtDebugLog" readonly style="width:100%;height:150px;font-family:monospace;font-size:11px;padding:8px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--gray-50);color:var(--text-main);resize:vertical;" placeholder="尚無日誌記錄。請進行名片辨識掃描。"></textarea>
+            <button class="btn btn--primary btn--sm" style="width:100%;margin-top:6px;" onclick="copyDebugLog()">複製日誌內容</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-group__title">關於</div>
+        <div class="glass" style="padding:var(--sp-xl);text-align:center;border-radius:var(--r-lg);">
+          <div style="font-size:36px;margin-bottom:8px;">🪪</div>
+          <div style="font-size:17px;font-weight:900;margin-bottom:4px;">善緣名片王</div>
+          <div style="font-size:12px;color:var(--text-hint);">v2.2 (Build 20260717-v2) · SHANYUAN CARD MASTER</div>
+          <div style="font-size:12px;color:var(--text-hint);margin-top:12px;line-height:1.8;">
+            資料僅儲存於本機<br>不傳送至任何伺服器
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       🏷️ 分類管理頁 (高度還原截圖 1)
+  ════════════════════════════════════════ -->
+  <div class="page" id="page-categories">
+    <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; padding:var(--sp-md); border-bottom:1px solid var(--border);">
+      <div style="width: 50px;"></div>
+      <div class="page-title" style="font-size:18px; font-weight:700; color:var(--text-main);">分類</div>
+      <button class="btn btn--primary btn--sm" onclick="addCategory()" style="padding:6px 12px; border-radius:12px; font-size:13px; font-weight:bold;">
+        ＋ 新增
+      </button>
+    </div>
+    <div class="main-content" style="padding:var(--sp-md) var(--sp-md) 100px var(--sp-md);">
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:16px; padding-left:4px;">
+        長按手把 ≡ 拖拉重新排序
+      </div>
+      <div id="categoriesList" class="categories-list">
+        <!-- 動態渲染分類行 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       底部導覽列
+  ════════════════════════════════════════ -->
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="nav-btn active" data-page="categories">
+      <svg class="icon-svg" viewBox="0 0 24 24">
+        <path d="M4 12a4 4 0 118 0" />
+        <path d="M12 12a4 4 0 118 0" />
+        <path d="M10.8 11.2a4 4 0 011.2.8 4 4 0 011.2.8m-2.4-.8a4 4 0 001.2-.8 4 4 0 001.2-.8" stroke-dasharray="0.5 0.5"/>
+      </svg>
+      <span class="nav-btn__label">名片庫</span>
+    </button>
+    <button class="nav-btn" data-page="ai">
+      <svg class="icon-svg star" viewBox="0 0 24 24">
+        <path d="M12 4a8 8 0 00-8 8m8-8a8 8 0 018 8m-8-8c1.3 0 2.5.5 3.5 1.4m-7 .1A8 8 0 0112 4" stroke-dasharray="2 3"/>
+        <path d="M12 12m-2 0l2-2l2 2l-2 2z" />
+      </svg>
+      <span class="nav-btn__label">AI 搜尋</span>
+    </button>
+    <button class="nav-btn nav-btn--add" data-page="add">＋</button>
+    <button class="nav-btn" data-page="mycard">
+      <svg class="icon-svg" viewBox="0 0 24 24">
+        <rect x="3" y="6" width="18" height="12" rx="2.5" />
+        <path d="M7 10h4M7 13.5h4"/>
+        <path d="M16 9.5a2 2 0 112 2a2 2 0 01-2-2m-1 6.5a4 4 0 014-2.5"/>
+      </svg>
+      <span class="nav-btn__label">我的名片</span>
+    </button>
+    <button class="nav-btn" data-page="settings">
+      <svg class="icon-svg" viewBox="0 0 24 24">
+        <line x1="4" y1="8" x2="20" y2="8" />
+        <line x1="4" y1="16" x2="20" y2="16" />
+        <circle cx="9" cy="8" r="2" fill="currentColor"/>
+        <circle cx="15" cy="16" r="2" fill="currentColor"/>
+      </svg>
+      <span class="nav-btn__label">設定</span>
+    </button>
+  </nav>
+
+</div><!-- /#app -->
+
+<!-- ════════════════════════════════════════
+     主程式（單一 script，無 import，雙擊可用）
+════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ────────────────────────────────────────────
+// 靜態資料
+// ────────────────────────────────────────────
+const IND_MAP = {
+  it:'💻 IT科技', finance:'💰 金融', medical:'🏥 醫療',
+  food:'🍽️ 餐飲', legal:'⚖️ 法律', edu:'🎓 教育',
+  retail:'🛍️ 零售', real:'🏢 不動產', media:'📺 媒體',
+  mfg:'🏭 製造', travel:'✈️ 旅遊', beauty:'💄 美容',
+  other:'📋 其他'
+};
+
+// ────────────────────────────────────────────
+// 狀態
+// ────────────────────────────────────────────
+var S = {
+  cards: [],
+  filtered: [],
+  categories: [],
+  curCard: null,
+  curPage: 'home',
+  query: '',
+  ind: 'all',
+  geminiKey: '',
+  geminiModel: 'gemini-2.5-flash',
+  editId: null,
+  currentProfiles: [],
+  currentRawText: [],
+};
+
+// ────────────────────────────────────────────
+// IndexedDB
+// ────────────────────────────────────────────
+var db = null;
+
+function openDB() {
+  return new Promise(function(res, rej) {
+    var resolved = false;
+    var timer = setTimeout(function() {
+      if (!resolved) {
+        resolved = true;
+        console.warn("IndexedDB open timed out after 1.5s, falling back to memory");
+        rej(new Error("Timeout opening database"));
+      }
+    }, 1500);
+
+    try {
+      var req = indexedDB.open('ShanyuanDB', 3);
+      req.onblocked = function(e) {
+        console.warn("IndexedDB open blocked by another tab or connection");
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          rej(new Error("Database blocked"));
+        }
+      };
+      req.onupgradeneeded = function(e) {
+        var d = e.target.result;
+        if (!d.objectStoreNames.contains('cards')) {
+          var s = d.createObjectStore('cards', { keyPath:'id', autoIncrement:true });
+          ['name','company','industry','region','birthday'].forEach(function(k){ s.createIndex(k,k); });
+        }
+        if (!d.objectStoreNames.contains('meta')) {
+          d.createObjectStore('meta', { keyPath:'key' });
+        }
+      };
+      req.onsuccess = function(e) {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          db = e.target.result;
+          
+          // 當其他分頁/PWA 請求升級資料庫時，自動關閉本連線以防阻擋對方
+          db.onversionchange = function() {
+            db.close();
+            console.log("Database closed due to upgrade request in another tab");
+          };
+          
+          res(db);
+        }
+      };
+      req.onerror = function(e) {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          rej(e.target.error || new Error("Unknown DB error"));
+        }
+      };
+    } catch(err) {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        rej(err);
+      }
+    }
+  });
+}
+
+function dbAll() {
+  return new Promise(function(res, rej) {
+    var req = db.transaction('cards','readonly').objectStore('cards').getAll();
+    req.onsuccess = function(e) { res(e.target.result); };
+    req.onerror   = function(e) { rej(e.target.error); };
+  });
+}
+
+function dbGet(id) {
+  return new Promise(function(res, rej) {
+    var req = db.transaction('cards','readonly').objectStore('cards').get(id);
+    req.onsuccess = function(e) { res(e.target.result); };
+    req.onerror   = function(e) { rej(e.target.error); };
+  });
+}
+
+function dbAdd(card) {
+  return new Promise(function(res, rej) {
+    card.createdAt = Date.now();
+    var req = db.transaction('cards','readwrite').objectStore('cards').add(card);
+    req.onsuccess = function(e) { res(e.target.result); };
+    req.onerror   = function(e) { rej(e.target.error); };
+  });
+}
+
+function dbPut(card) {
+  return new Promise(function(res, rej) {
+    var req = db.transaction('cards','readwrite').objectStore('cards').put(card);
+    req.onsuccess = function(e) { res(e.target.result); };
+    req.onerror   = function(e) { rej(e.target.error); };
+  });
+}
+
+function dbDel(id) {
+  return new Promise(function(res, rej) {
+    var req = db.transaction('cards','readwrite').objectStore('cards').delete(id);
+    req.onsuccess = function() { res(true); };
+    req.onerror   = function(e) { rej(e.target.error); };
+  });
+}
+
+function metaGet(key) {
+  return new Promise(function(res) {
+    try {
+      if (!db || !db.objectStoreNames.contains('meta')) {
+        res(null);
+        return;
+      }
+      var req = db.transaction('meta','readonly').objectStore('meta').get(key);
+      req.onsuccess = function(e) { res(e.target.result ? e.target.result.val : null); };
+      req.onerror   = function()  { res(null); };
+    } catch(err) {
+      console.warn("metaGet failed (ignored):", err);
+      res(null);
+    }
+  });
+}
+
+function metaSet(key, val) {
+  return new Promise(function(res) {
+    try {
+      if (!db || !db.objectStoreNames.contains('meta')) {
+        res(false);
+        return;
+      }
+      var req = db.transaction('meta','readwrite').objectStore('meta').put({ key:key, val:val });
+      req.onsuccess = function() { res(true); };
+      req.onerror   = function() { res(false); };
+    } catch(err) {
+      console.warn("metaSet failed (ignored):", err);
+      res(false);
+    }
+  });
+}
+
+// ────────────────────────────────────────────
+// 動態分類管理系統 API
+// ────────────────────────────────────────────
+async function initCategories() {
+  try {
+    var cats = await metaGet('categories');
+    if (!cats || cats.length === 0) {
+      cats = [
+        { id: 'it', name: '💻 IT科技' },
+        { id: 'finance', name: '💰 金融' },
+        { id: 'medical', name: '🏥 醫療' },
+        { id: 'food', name: '🍽️ 餐飲' },
+        { id: 'legal', name: '⚖️ 法律' },
+        { id: 'edu', name: '🎓 教育' },
+        { id: 'retail', name: '🛍️ 零售' },
+        { id: 'real', name: '🏢 不動產' },
+        { id: 'media', name: '📺 媒體' },
+        { id: 'mfg', name: '🏭 製造' },
+        { id: 'travel', name: '✈️ 旅遊' },
+        { id: 'beauty', name: '💄 美容' },
+        { id: 'other', name: '📋 其他' }
+      ];
+      await metaSet('categories', cats);
+    }
+    S.categories = cats;
+  } catch(err) {
+    console.error("initCategories failed, falling back to defaults:", err);
+    S.categories = [
+      { id: 'it', name: '💻 IT科技' },
+      { id: 'finance', name: '💰 金融' },
+      { id: 'medical', name: '🏥 醫療' },
+      { id: 'food', name: '🍽️ 餐飲' },
+      { id: 'legal', name: '⚖️ 法律' },
+      { id: 'edu', name: '🎓 教育' },
+      { id: 'retail', name: '🛍️ 零售' },
+      { id: 'real', name: '🏢 不動產' },
+      { id: 'media', name: '📺 媒體' },
+      { id: 'mfg', name: '🏭 製造' },
+      { id: 'travel', name: '✈️ 旅遊' },
+      { id: 'beauty', name: '💄 美容' },
+      { id: 'other', name: '📋 其他' }
+    ];
+  }
+}
+
+function getCategoryName(id) {
+  if (!id) return '';
+  var cat = S.categories.find(function(c) { return c.id === id; });
+  return cat ? cat.name : id;
+}
+
+function renderFilterRow() {
+  var row = document.getElementById('filterRow');
+  if (!row) return;
+  var html = '<button class="chip' + (S.ind === 'all' ? ' active' : '') + '" data-ind="all">全部</button>';
+  S.categories.forEach(function(cat) {
+    html += '<button class="chip' + (S.ind === cat.id ? ' active' : '') + '" data-ind="' + cat.id + '">' + esc(cat.name) + '</button>';
+  });
+  row.innerHTML = html;
+}
+
+function populateIndustrySelect() {
+  var sel = document.getElementById('fIndustry');
+  if (!sel) return;
+  var html = '<option value="">選擇分類</option>';
+  S.categories.forEach(function(cat) {
+    if (cat.id !== 'other') {
+      html += '<option value="' + cat.id + '">' + esc(cat.name) + '</option>';
+    }
+  });
+  var otherCat = S.categories.find(function(c) { return c.id === 'other'; });
+  if (otherCat) {
+    html += '<option value="other">' + esc(otherCat.name) + '</option>';
+  } else {
+    html += '<option value="other">📋 其他</option>';
+  }
+  sel.innerHTML = html;
+}
+
+function renderCategories() {
+  var list = document.getElementById('categoriesList');
+  if (!list) return;
+  var html = '';
+  
+  // 計算總名片數
+  var totalCount = S.cards.length;
+  
+  // 1. 渲染固定的「📂 全部名片」置頂目錄，不可拖曳或編輯
+  html += '<div class="category-item" style="cursor:pointer;" onclick="selectCategoryAndGo(\'all\')">' +
+            '<div class="category-item__handle" style="visibility:hidden;pointer-events:none;">≡</div>' +
+            '<div class="category-item__body" style="margin-left:-8px;">' +
+              '<div class="category-item__name">📂 全部名片</div>' +
+              '<div class="category-item__count">' + totalCount + ' 張名片</div>' +
+            '</div>' +
+            '<div class="category-item__actions"></div>' +
+          '</div>';
+
+  var allKeys = S.categories.filter(function(x){ return x.id !== 'other'; }).map(function(x){ return x.id; });
+  
+  S.categories.forEach(function(cat, index) {
+    var count = S.cards.filter(function(c) {
+      if (cat.id === 'other') {
+        return !c.industry || allKeys.indexOf(c.industry) === -1;
+      }
+      return c.industry === cat.id;
+    }).length;
+    
+    var isOther = cat.id === 'other';
+    var deleteBtn = isOther ? '' : '<button class="category-item__btn category-item__btn--delete" onclick="event.stopPropagation(); deleteCategory(\'' + cat.id + '\')">刪除</button>';
+    
+    html += '<div class="category-item" draggable="true" data-id="' + cat.id + '" data-index="' + index + '" onclick="selectCategoryAndGo(\'' + cat.id + '\')">' +
+              '<div class="category-item__handle" onclick="event.stopPropagation()">≡</div>' +
+              '<div class="category-item__body">' +
+                '<div class="category-item__name">' + esc(cat.name) + '</div>' +
+                '<div class="category-item__count">' + count + ' 張名片</div>' +
+              '</div>' +
+              '<div class="category-item__actions">' +
+                '<button class="category-item__btn category-item__btn--rename" onclick="event.stopPropagation(); renameCategory(\'' + cat.id + '\')">改名</button>' +
+                deleteBtn +
+              '</div>' +
+            '</div>';
+  });
+  list.innerHTML = html;
+  
+  document.querySelectorAll('.category-item').forEach(function(el) {
+    bindDragEvents(el);
+    bindTouchEvents(el);
+  });
+}
+
+function addCategory() {
+  var name = prompt('請輸入新分類名稱（如：客戶、供應商）：');
+  if (!name) return;
+  name = name.trim();
+  if (!name) return;
+  
+  var exists = S.categories.some(function(c) { return c.name === name; });
+  if (exists) {
+    alert('此分類名稱已存在！');
+    return;
+  }
+  
+  var newId = 'cat_' + Date.now();
+  // 插入到 "其他" 之前
+  var otherIdx = S.categories.findIndex(function(c){ return c.id === 'other'; });
+  if (otherIdx !== -1) {
+    S.categories.splice(otherIdx, 0, { id: newId, name: name });
+  } else {
+    S.categories.push({ id: newId, name: name });
+  }
+  
+  metaSet('categories', S.categories).then(function() {
+    renderCategories();
+    renderFilterRow();
+    populateIndustrySelect();
+  });
+}
+
+function renameCategory(id) {
+  var cat = S.categories.find(function(c) { return c.id === id; });
+  if (!cat) return;
+  
+  var newName = prompt('將「' + cat.name + '」改名為：', cat.name);
+  if (!newName) return;
+  newName = newName.trim();
+  if (!newName || newName === cat.name) return;
+  
+  var exists = S.categories.some(function(c) { return c.id !== id && c.name === newName; });
+  if (exists) {
+    alert('此分類名稱已存在！');
+    return;
+  }
+  
+  cat.name = newName;
+  
+  metaSet('categories', S.categories).then(function() {
+    renderCategories();
+    renderFilterRow();
+    populateIndustrySelect();
+  });
+}
+
+function deleteCategory(id) {
+  if (id === 'other') {
+    alert('「其他」為系統預設分類，不可刪除！');
+    return;
+  }
+  
+  var cat = S.categories.find(function(c) { return c.id === id; });
+  if (!cat) return;
+  
+  var associatedCount = S.cards.filter(function(c) { return c.industry === id; }).length;
+  var confirmMsg = '確定要刪除「' + cat.name + '」嗎？';
+  if (associatedCount > 0) {
+    confirmMsg = '警告：該分類下有 ' + associatedCount + ' 張名片。刪除分類後，這些名片將會被自動歸類到「其他」分類中。\n\n' + confirmMsg;
+  }
+  
+  if (!confirm(confirmMsg)) return;
+  
+  var promises = [];
+  S.cards.forEach(function(c) {
+    if (c.industry === id) {
+      c.industry = 'other';
+      promises.push(dbPut(c));
+    }
+  });
+  
+  Promise.all(promises).then(function() {
+    S.categories = S.categories.filter(function(c) { return c.id !== id; });
+    metaSet('categories', S.categories).then(function() {
+      renderCategories();
+      renderFilterRow();
+      populateIndustrySelect();
+      applyFilter();
+    });
+  });
+}
+
+// ────────────────────────────────────────────
+// 拖曳排序實作 (HTML5 Drag & Drop)
+// ────────────────────────────────────────────
+var dragStartIndex = null;
+
+function handleDragStart(e) {
+  dragStartIndex = parseInt(this.dataset.index);
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e) {
+  if (e.preventDefault) {
+    e.preventDefault();
+  }
+  return false;
+}
+
+function handleDragEnter(e) {
+  this.classList.add('over');
+}
+
+function handleDragLeave(e) {
+  this.classList.remove('over');
+}
+
+function handleDrop(e) {
+  e.stopPropagation();
+  var dragEndIndex = parseInt(this.dataset.index);
+  if (dragStartIndex !== null && dragEndIndex !== null && dragStartIndex !== dragEndIndex) {
+    var movedItem = S.categories.splice(dragStartIndex, 1)[0];
+    S.categories.splice(dragEndIndex, 0, movedItem);
+    
+    metaSet('categories', S.categories).then(function() {
+      renderCategories();
+      renderFilterRow();
+      populateIndustrySelect();
+    });
+  }
+  return false;
+}
+
+function handleDragEnd(e) {
+  this.classList.remove('dragging');
+  document.querySelectorAll('.category-item').forEach(function(item) {
+    item.classList.remove('over');
+  });
+}
+
+function bindDragEvents(el) {
+  el.addEventListener('dragstart', handleDragStart);
+  el.addEventListener('dragover', handleDragOver);
+  el.addEventListener('dragenter', handleDragEnter);
+  el.addEventListener('dragleave', handleDragLeave);
+  el.addEventListener('drop', handleDrop);
+  el.addEventListener('dragend', handleDragEnd);
+}
+
+// ────────────────────────────────────────────
+// 手動觸控拖曳排序 (Mobile Touch Support)
+// ────────────────────────────────────────────
+var activeItem = null;
+
+function bindTouchEvents(el) {
+  var handle = el.querySelector('.category-item__handle');
+  if (!handle) return;
+  
+  handle.addEventListener('touchstart', function(e) {
+    activeItem = el;
+    el.classList.add('dragging');
+    e.preventDefault();
+  }, { passive: false });
+  
+  handle.addEventListener('touchmove', function(e) {
+    if (!activeItem) return;
+    e.preventDefault();
+    var currentY = e.touches[0].clientY;
+    var target = document.elementFromPoint(e.touches[0].clientX, currentY);
+    var targetItem = target ? target.closest('.category-item') : null;
+    
+    if (targetItem && targetItem !== activeItem) {
+      var targetIndex = parseInt(targetItem.dataset.index);
+      var activeIndex = parseInt(activeItem.dataset.index);
+      
+      if (!isNaN(targetIndex) && !isNaN(activeIndex)) {
+        var moved = S.categories.splice(activeIndex, 1)[0];
+        S.categories.splice(targetIndex, 0, moved);
+        
+        metaSet('categories', S.categories).then(function() {
+          renderCategories();
+          renderFilterRow();
+          populateIndustrySelect();
+        });
+        
+        activeItem = document.querySelector('.category-item[data-index="' + targetIndex + '"]');
+      }
+    }
+  }, { passive: false });
+  
+  handle.addEventListener('touchend', function(e) {
+    if (activeItem) {
+      activeItem.classList.remove('dragging');
+      activeItem = null;
+    }
+  });
+}
+
+// ────────────────────────────────────────────
+// 顏色辨識（純本地）
+// ────────────────────────────────────────────
+function detectColor(dataUrl) {
+  return new Promise(function(res) {
+    var img = new Image();
+    img.onload = function() {
+      var c = document.createElement('canvas');
+      c.width = Math.min(img.width, 60); c.height = Math.min(img.height, 40);
+      var ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      var d = ctx.getImageData(0, 0, c.width, c.height).data;
+      var r=0, g=0, b=0, n=0;
+      for (var i=0; i<d.length; i+=4) { r+=d[i]; g+=d[i+1]; b+=d[i+2]; n++; }
+      r=Math.round(r/n); g=Math.round(g/n); b=Math.round(b/n);
+      var hex = '#' + [r,g,b].map(function(v){ return v.toString(16).padStart(2,'0'); }).join('');
+      var name = nameColor(r,g,b);
+      res({ hex:hex, name:name });
+    };
+    img.onerror = function() { res({ hex:'#888', name:'未知' }); };
+    img.src = dataUrl;
+  });
+}
+
+function nameColor(r,g,b) {
+  var palette = [
+    ['紅色',220,50,50], ['橙色',230,130,50], ['黃色',220,200,50],
+    ['綠色',50,180,80],  ['藍色',50,100,220], ['深藍色',30,50,140],
+    ['紫色',140,60,200], ['粉色',230,130,160], ['灰色',140,140,140],
+    ['黑色',30,30,30],   ['白色',240,240,240], ['棕色',160,90,40],
+    ['金色',200,168,60], ['青色',50,180,180],
+  ];
+  var best='彩色', min=Infinity;
+  palette.forEach(function(p) {
+    var d = Math.sqrt(Math.pow(r-p[1],2)+Math.pow(g-p[2],2)+Math.pow(b-p[3],2));
+    if (d<min) { min=d; best=p[0]; }
+  });
+  return best;
+}
+
+// ────────────────────────────────────────────
+// AI 搜尋（本地降級 or Gemini）
+// ────────────────────────────────────────────
+function localSearch(q, cards) {
+  var kws = q.toLowerCase().split(/[\s、，,　]+/).filter(Boolean);
+  var colorMap = { '藍':'藍色','紅':'紅色','綠':'綠色','黃':'黃色',
+    '紫':'紫色','白':'白色','黑':'黑色','橙':'橙色','金':'金色','灰':'灰色','棕':'棕色' };
+  return cards.filter(function(c) {
+    var hay = [c.name,c.company,c.title,c.industry,c.region,c.note,c.bgColor].join(' ').toLowerCase();
+    return kws.every(function(kw) {
+      for (var zh in colorMap) {
+        if (kw.includes(zh) && c.bgColor && c.bgColor.includes(colorMap[zh])) return true;
+      }
+      // 本月壽星
+      if ((kw.includes('壽星')||kw.includes('生日')) && c.birthday) {
+        var m = new Date(c.birthday).getMonth()+1;
+        return m === new Date().getMonth()+1;
+      }
+      return hay.includes(kw);
+    });
+  });
+}
+
+async function aiSearch(q) {
+  if (!S.geminiKey) return localSearch(q, S.cards);
+  try {
+    var summary = S.cards.map(function(c,i) {
+      return '['+i+'] '+[c.name,c.company,c.title,c.industry,c.region,'底色:'+(c.bgColor||'?'),'備註:'+(c.note||'')].join('|');
+    }).join('\n');
+    var prompt = '你是名片搜尋助理。根據查詢從以下名片找出最符合的索引，只回傳JSON陣列如[0,2]，無則[]，不加說明。\n查詢：「'+q+'」\n名片：\n'+summary;
+    var resp = await fetch('https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ contents:[{parts:[{text:prompt}]}], generation_config:{temperature:0.1,max_output_tokens:128} })
+    });
+    if (!resp.ok) throw new Error('API err');
+    var data = await resp.json();
+    var text = (data.candidates[0].content.parts[0].text||'[]').trim();
+    var m = text.match(/\[[\d,\s]*\]/);
+    var idx = m ? JSON.parse(m[0]) : [];
+    return idx.map(function(i){ return S.cards[i]; }).filter(Boolean);
+  } catch(e) {
+    toast('AI 連線失敗，改用本地搜尋', 'info');
+    return localSearch(q, S.cards);
+  }
+}
+
+// ────────────────────────────────────────────
+// 頁面路由
+// ────────────────────────────────────────────
+function goBack() {
+  if (S.prevPage) {
+    goTo(S.prevPage);
+  } else {
+    goTo('categories');
+  }
+}
+
+function selectCategoryAndGo(catId) {
+  S.ind = catId;
+  goTo('home');
+}
+
+function goTo(page) {
+  if (page !== S.curPage) {
+    S.prevPage = S.curPage;
+  }
+  S.curPage = page;
+  document.querySelectorAll('.page').forEach(function(p) {
+    p.classList.toggle('active', p.id === 'page-'+page);
+  });
+  document.querySelectorAll('.nav-btn').forEach(function(b) {
+    var isActive = (b.dataset.page === page) || (page === 'home' && b.dataset.page === 'categories');
+    b.classList.toggle('active', isActive);
+  });
+  // 頂部列只在首頁顯示
+  document.getElementById('globalTopBar').style.display = page === 'home' ? '' : 'none';
+
+  if (page === 'home')     { loadCards(); }
+  if (page === 'add')      { onAddPage(); checkApiKeyWarning(); }
+  if (page === 'mycard')   { loadMyCard(); }
+  if (page === 'settings') { loadSettings(); }
+  if (page === 'categories') {
+    dbAll().then(function(cards) {
+      S.cards = cards;
+      renderCategories();
+    }).catch(function(err) {
+      console.warn("categories dbAll failed, using cache:", err);
+      renderCategories();
+    });
+  }
+}
+
+// ────────────────────────────────────────────
+// 首頁：載入與渲染
+// ────────────────────────────────────────────
+async function loadCards() {
+  try {
+    S.cards = await dbAll();
+  } catch(err) {
+    console.error("loadCards dbAll failed:", err);
+    S.cards = [];
+  }
+  
+  // 更新特定分類列表的頂部標題
+  var cat = S.categories.find(function(c) { return c.id === S.ind; });
+  var titleText = cat ? cat.name : (S.ind === 'all' ? '全部名片' : S.ind);
+  var titleEl = document.getElementById('homePageTitle');
+  if (titleEl) {
+    titleEl.innerText = titleText;
+  }
+  
+  applyFilter();
+  updateStats();
+  checkBirthday();
+}
+
+function applyFilter() {
+  var q  = S.query.toLowerCase().trim();
+  var ind = S.ind;
+  S.filtered = S.cards.filter(function(c) {
+    if (ind !== 'all') {
+      var presetKeys = S.categories.filter(function(x){ return x.id !== 'other'; }).map(function(x){ return x.id; });
+      if (ind === 'other') {
+        var isPreset = presetKeys.indexOf(c.industry) !== -1;
+        if (isPreset) return false;
+      } else {
+        if (c.industry !== ind) return false;
+      }
+    }
+    if (!q) return true;
+    var hay = [c.name,c.company,c.title,c.address,c.phone,c.email,c.note,c.bgColor,c.region].join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+  renderList(S.filtered);
+  document.getElementById('listCount').textContent = S.filtered.length + ' 張';
+}
+
+function updateStats() {
+  var total = S.cards.length;
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('topBarCount').textContent = '共 ' + total + ' 張';
+  var m = new Date().getMonth()+1;
+  var bdays = S.cards.filter(function(c){ return c.birthday && new Date(c.birthday).getMonth()+1 === m; });
+  document.getElementById('statBirthday').textContent = bdays.length;
+}
+
+function checkBirthday() {
+  var m = new Date().getMonth()+1;
+  var bdays = S.cards.filter(function(c){ return c.birthday && new Date(c.birthday).getMonth()+1 === m; });
+  var bar = document.getElementById('birthdayBar');
+  if (bdays.length > 0) {
+    bar.style.display = 'flex';
+    var names = bdays.slice(0,3).map(function(c){ return c.name; }).join('、');
+    document.getElementById('birthdaySub').textContent = names + (bdays.length>3 ? ' 等 '+bdays.length+' 人' : '');
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function renderList(cards) {
+  var el = document.getElementById('cardsList');
+  if (!cards.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">尚無名片</div><p class="empty-text">點擊下方 <strong>＋</strong> 按鈕<br>新增您的第一張名片</p></div>';
+    return;
+  }
+  el.innerHTML = cards.map(cardHTML).join('');
+  el.querySelectorAll('.biz-card').forEach(function(el) {
+    el.addEventListener('click', function(){ openDetail(+el.dataset.id); });
+  });
+}
+
+function cardHTML(c) {
+  var ini = (c.name||"?").charAt(0);
+  var colorIdx = c.id ? c.id % 6 : 0;
+  var ind = c.industry ? getCategoryName(c.industry) : '';
+  var colorDot = c.bgColorHex ? '<span class="color-dot" style="background:'+c.bgColorHex+'"></span>' : '';
+  var colorTag = c.bgColor ? '<span class="tag tag--color">'+colorDot+esc(c.bgColor)+'</span>' : '';
+  var indTag   = ind ? '<span class="tag tag--industry">'+esc(ind)+'</span>' : '';
+  var regTag   = c.region ? '<span class="tag tag--region">📍 '+esc(c.region)+'</span>' : '';
+  
+  // 💡 公司行號多重身份顯示優化：列表顯示所有關聯公司
+  var compDisplay = c.company || '';
+  if (c.profiles && c.profiles.length > 1) {
+    var uniqComps = [];
+    c.profiles.forEach(function(p) {
+      if (p.company && uniqComps.indexOf(p.company) === -1) {
+        uniqComps.push(p.company);
+      }
+    });
+    if (uniqComps.length > 0) {
+      compDisplay = uniqComps.join(' / ');
+    }
+  }
+  
+  return '<div class="biz-card" data-id="'+c.id+'">'
+    +'<div class="card-avatar card-avatar--color-'+colorIdx+'">'+esc(ini)+'</div>'
+    +'<div class="card-info">'
+    +'<div class="card-name">'+esc(c.name||"（無姓名）")+'</div>'
+    +'<div class="card-sub">'+esc([compDisplay, c.title].filter(Boolean).join(" · "))+'</div>'
+    +'<div class="card-tags">'+indTag+regTag+colorTag+'</div>'
+    +'</div>'
+    +'<svg class="card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>'
+    +'</div>';
+}
+
+
+function renderDetailField(value, label, isEmail = false) {
+  if (!value) return '—';
+  var parts = value.split(/\s*\/\s*/);
+  if (parts.length > 1) {
+    var options = parts.map(p => `<option value="${p}">${p}</option>`).join('');
+    return `
+      <select class="detail-select" style="border:1px solid #e0e0e0; padding:6px 12px; border-radius:8px; font-size:14px; background:#f9f9f9; color:#333; max-width:100%; outline:none;" onchange="if(this.value.includes('@')){ this.parentElement.querySelector('a').href='mailto:'+this.value; this.parentElement.querySelector('a').textContent=this.value; }">
+        ${options}
+      </select>
+    `;
+  }
+  return isEmail ? `<a href="mailto:${value}" style="color:#00E676; text-decoration:none;">${value}</a>` : value;
+}
+
+
+async function openDetail(id) {
+  var c = await dbGet(id);
+  if (!c) return;
+  S.curCard = c;
+  
+  var ind = c.industry ? getCategoryName(c.industry) : '—';
+  document.getElementById('detailName').textContent = c.name||'（無姓名）';
+  document.getElementById('dIndustry').textContent = ind;
+  document.getElementById('dRegion').textContent   = c.region||'—';
+  document.getElementById('dBirthday').textContent = c.birthday ? new Date(c.birthday).toLocaleDateString('zh-TW') : '—';
+  document.getElementById('dBgColor').textContent  = c.bgColor||'—';
+  document.getElementById('dCreated').textContent  = c.createdAt ? new Date(c.createdAt).toLocaleDateString('zh-TW') : '—';
+  
+  var nb = document.getElementById('noteBox');
+  if (c.note) {
+    nb.style.display='block';
+    document.getElementById('dNote').textContent = c.note;
+  } else {
+    nb.style.display='none';
+  }
+
+  // 1. 定義單一身分切換的渲染函數
+  function applyProfileDataToDetail(p) {
+    var companyVal = p.company || '';
+    var titleVal   = p.title || '';
+    
+    var subHTML = '';
+    if (companyVal.includes('/') || titleVal.includes('/')) {
+      subHTML = renderDetailField(companyVal, 'company') + ' · ' + renderDetailField(titleVal, 'title');
+    } else {
+      subHTML = [esc(companyVal), esc(titleVal)].filter(Boolean).join(' · ') || '—';
+    }
+    
+    document.getElementById('detailSub').innerHTML = subHTML;
+    document.getElementById('dPhone').innerHTML    = renderDetailField(p.phone, 'phone');
+    document.getElementById('dEmail').innerHTML    = renderDetailField(p.email, 'email', true);
+    document.getElementById('dAddress').innerHTML  = renderDetailField(p.address, 'address');
+  }
+
+  // 2. 智慧處理多身分切換下拉選單 (唯讀檢視模式)
+  var detailSelContainer = document.getElementById('detailProfileSelectorContainer');
+  var detailSelector = document.getElementById('dProfileSelector');
+  
+  var profiles = c.profiles || [];
+  
+  if (profiles.length === 0) {
+    profiles.push({
+      company: c.company || '',
+      title: c.title || '',
+      phone: c.phone || '',
+      email: c.email || '',
+      address: c.address || ''
+    });
+  }
+
+  if (profiles.length > 1 && detailSelContainer && detailSelector) {
+    detailSelector.innerHTML = '';
+    profiles.forEach(function(p, idx) {
+      var opt = document.createElement('option');
+      opt.value = idx;
+      opt.textContent = (idx + 1) + '. ' + (p.company || '無公司') + ' (' + (p.title || '無職稱') + ')';
+      detailSelector.appendChild(opt);
+    });
+    detailSelContainer.style.display = 'block';
+    
+    var activeIdx = 0;
+    for (var i = 0; i < profiles.length; i++) {
+      if (profiles[i].company === c.company && profiles[i].title === c.title) {
+        activeIdx = i;
+        break;
+      }
+    }
+    detailSelector.value = activeIdx;
+    applyProfileDataToDetail(profiles[activeIdx]);
+    
+    detailSelector.onchange = function() {
+      applyProfileDataToDetail(profiles[this.value]);
+    };
+  } else {
+    if (detailSelContainer) detailSelContainer.style.display = 'none';
+    applyProfileDataToDetail(profiles[0]);
+  }
+  
+  // 支持 3D 卡片正反面翻轉效果展示
+  var thumb = document.getElementById('detailThumb');
+  if (c.imageData && c.imageDataBack) {
+    thumb.innerHTML = `
+      <div class="flip-card" onclick="this.classList.toggle('flipped')" style="perspective: 1000px; width: 100%; max-width: 320px; aspect-ratio: 1.6 / 1; cursor: pointer; margin: 0 auto 15px;">
+        <div class="flip-card-inner" style="position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; margin: 0;">
+          <!-- 正面 -->
+          <div class="flip-card-front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden; margin: 0;">
+            <img src="${c.imageData}" style="width: 100%; height: 100%; object-fit: contain; margin: 0;">
+          </div>
+          <!-- 反面 -->
+          <div class="flip-card-back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden; transform: rotateY(180deg); margin: 0;">
+            <img src="${c.imageDataBack}" style="width: 100%; height: 100%; object-fit: contain; margin: 0;">
+          </div>
+        </div>
+      </div>
+      <div style="text-align: center; font-size: 11px; color: #888; margin-top: -5px; margin-bottom: 15px;">💡 輕點名片可 3D 翻轉查看反面 🔄</div>
+    `;
+  } else if (c.imageData) {
+    thumb.innerHTML = '<div style="max-width:320px; margin: 0 auto 15px;"><img src="'+c.imageData+'" alt="名片圖" style="width:100%; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.1);"></div>';
+  } else {
+    thumb.innerHTML = '<span style="font-size:36px;opacity:.2">🪪</span>';
+  }
+  
+  goTo('detail');
+}
+
+function editCard() {
+  if (!S.curCard) return;
+  var c = S.curCard;
+  S.editId = c.id;
+  document.getElementById('addPageTitle').textContent = '編輯名片';
+  document.getElementById('fEditId').value   = c.id;
+  document.getElementById('fName').value     = c.name||'';
+  document.getElementById('fPhone').value    = c.phone||'';
+  document.getElementById('fCompany').value  = c.company||'';
+  document.getElementById('fTitle').value    = c.title||'';
+  document.getElementById('fEmail').value    = c.email||'';
+  document.getElementById('fAddress').value  = c.address||'';
+  
+  var indVal = c.industry || '';
+  var selectEl = document.getElementById('fIndustry');
+  var customInputEl = document.getElementById('fIndustryCustom');
+  var presetKeys = ['it', 'finance', 'medical', 'food', 'legal', 'edu', 'retail', 'real', 'media', 'mfg', 'travel', 'beauty', 'other'];
+  if (indVal === '') {
+    selectEl.value = '';
+    customInputEl.value = '';
+    customInputEl.style.display = 'none';
+  } else if (presetKeys.indexOf(indVal) !== -1) {
+    selectEl.value = indVal;
+    customInputEl.value = '';
+    customInputEl.style.display = 'none';
+  } else {
+    selectEl.value = 'other';
+    customInputEl.value = indVal;
+    customInputEl.style.display = 'block';
+  }
+
+  document.getElementById('fRegion').value   = c.region||'';
+  document.getElementById('fBirthday').value = c.birthday||'';
+  document.getElementById('fNote').value     = c.note||'';
+  document.getElementById('fBgColor').value  = c.bgColor||'';
+  document.getElementById('fBgHex').value    = c.bgColorHex||'';
+  
+  // 👔 載入累積的多重身分組
+  S.currentProfiles = c.profiles || [];
+  S.currentRawText = [];
+  clearAllFormSelects();
+  resetProfileSelectorAndPills();
+
+  if (S.currentProfiles.length > 1) {
+    var masterContainer = document.getElementById('profileSelectorContainer');
+    var masterSelector = document.getElementById('fProfileSelector');
+    if (masterSelector && masterContainer) {
+      masterSelector.innerHTML = '';
+      S.currentProfiles.forEach(function(p, idx) {
+        var opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = (idx + 1) + '. ' + (p.company || '無公司') + ' (' + (p.title || '無職稱') + ')';
+        masterSelector.appendChild(opt);
+      });
+      masterContainer.style.display = 'block';
+      
+      // 預設選取目前儲存的公司與職稱對應的身分
+      var activeIdx = 0;
+      for (var i = 0; i < S.currentProfiles.length; i++) {
+        if (S.currentProfiles[i].company === c.company && S.currentProfiles[i].title === c.title) {
+          activeIdx = i;
+          break;
+        }
+      }
+      masterSelector.value = activeIdx;
+      
+      masterSelector.onchange = function() {
+        applyProfileData(S.currentProfiles[this.value]);
+      };
+    }
+  }
+  
+  // 載入正面預覽
+  var prev = document.getElementById('scanPreview');
+  var rc = document.getElementById('rotateControl');
+  if (c.imageData) { prev.src = c.imageData; prev.style.display='block'; }
+  else { prev.src = ''; prev.style.display='none'; }
+  if (c.imageData && rc) rc.style.display = 'flex';
+  else if (rc) rc.style.display = 'none';
+
+  // 載入反面預覽
+  var prevBack = document.getElementById('scanPreviewBack');
+  var rcBack = document.getElementById('rotateControlBack');
+  if (c.imageDataBack) { prevBack.src = c.imageDataBack; prevBack.style.display='block'; }
+  else { prevBack.src = ''; prevBack.style.display='none'; }
+  if (c.imageDataBack && rcBack) rcBack.style.display = 'flex';
+  else if (rcBack) rcBack.style.display = 'none';
+
+  goTo('add');
+}
+
+async function deleteCard() {
+  if (!S.curCard) return;
+  if (!confirm('確定要刪除「'+(S.curCard.name||'此名片')+'」嗎？')) return;
+  await dbDel(S.curCard.id);
+  toast('名片已刪除', 'ok');
+  goTo('home');
+}
+
+// ────────────────────────────────────────────
+// 新增 / 編輯名片
+// ────────────────────────────────────────────
+function checkApiKeyWarning() {
+  var bar = document.getElementById('apiKeyWarning');
+  if (bar) {
+    bar.style.display = (!S.geminiKey) ? 'block' : 'none';
+  }
+}
+
+function onAddPage() {
+  if (!S.editId) {
+    document.getElementById('addPageTitle').textContent = '新增名片';
+    document.getElementById('addForm').reset();
+    var fEditId = document.getElementById('fEditId');
+    if (fEditId) fEditId.value = '';
+    S.currentProfiles = [];
+    S.currentRawText = [];
+    clearAllFormSelects();
+    resetProfileSelectorAndPills();
+    
+    var customInputEl = document.getElementById('fIndustryCustom');
+    if (customInputEl) {
+      customInputEl.value = '';
+      customInputEl.style.display = 'none';
+    }
+    
+    var prev = document.getElementById('scanPreview'); prev.style.display='none'; prev.src='';
+    var rc = document.getElementById('rotateControl'); if (rc) rc.style.display='none';
+    
+    var prevBack = document.getElementById('scanPreviewBack'); if (prevBack) { prevBack.style.display='none'; prevBack.src=''; }
+    var rcBack = document.getElementById('rotateControlBack'); if (rcBack) rcBack.style.display='none';
+    
+    var cd = document.getElementById('colorDetected'); cd.style.display='none';
+  }
+}
+
+// ── 圖片壓縮（Canvas 縮放到 1200px 以內）────────
+function compressImage(dataUrl, maxSize, quality) {
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.onload = function() {
+      var w = img.width, h = img.height;
+      if (w <= maxSize && h <= maxSize) {
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0);
+        resolve(c.toDataURL('image/jpeg', quality || 0.85));
+        return;
+      }
+      var scale = maxSize / Math.max(w, h);
+      var canvas = document.createElement('canvas');
+      canvas.width  = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality || 0.85));
+    };
+    img.onerror = function() { resolve(dataUrl); };
+    img.src = dataUrl;
+  });
+}
+
+// ── 正則備援：從原始文字抓各欄位 ─────────────────
+function extractFromText(text) {
+  // 💡 在正則解析前，先對整個文字流做 PII 遮罩還原，使正則表達式能順利配對
+  var decodedText = text
+    .replace(/_at_|\s*\[at\]\s*|\s*\(at\)\s*/gi, '@')
+    .replace(/_dot_|\s*\[dot\]\s*|\s*\(dot\)\s*/gi, '.');
+  
+  // 移除所有數字之間的空格，例如 "09 10 24 12 71" -> "0910241271"
+  decodedText = decodedText.replace(/(\d)\s+(?=\d)/g, '$1');
+
+  var result = { _isFallback: true };
+  var emailM = decodedText.match(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i);
+  if (emailM) result.email = emailM[0];
+  var phoneM = decodedText.match(/(?:\+?886[-\s]?|0)[2-9][\d\s()-]{6,12}/);
+  if (phoneM) result.phone = phoneM[0].trim();
+  
+  // 👔 屬性匹配：支援單/雙/無引號之字串及陣列格式，確保 regex 備援也能拿到 company, title 等欄位
+  ['name','company','title','phone','email','address'].forEach(function(f) {
+    // 優先匹配陣列格式，如 "company": ["A", "B"]
+    var arrRe = new RegExp('["\']?' + f + '["\']?\\s*:\\s*\\[([\\s\\S]*?)\\]', 'i');
+    var arrM = decodedText.match(arrRe);
+    if (arrM && arrM[1]) {
+      var items = [];
+      var strRe = /["']([^"']*)["']/g;
+      var match;
+      while ((match = strRe.exec(arrM[1])) !== null) {
+        items.push(match[1]);
+      }
+      if (items.length > 0) {
+        result[f] = items.join(' / ');
+        return;
+      }
+    }
+    // 次優先匹配單一字串格式
+    var re = new RegExp('["\']?' + f + '["\']?\\s*:\\s*["\']([^"\']*)["\']', 'i');
+    var m = decodedText.match(re);
+    if (m && m[1] && !result[f]) result[f] = m[1];
+  });
+
+  // 嘗試從文字中以 Regex 提取 raw_text 陣列，作為 JSON 解析失敗時的極限備援
+  var rawTextMatch = decodedText.match(/["']?raw_?texts?(?:_list)?["']?\s*:\s*\[([\s\S]*?)\]/i);
+  if (rawTextMatch && rawTextMatch[1]) {
+    try {
+      var items = [];
+      var strRegex = /["']([^"']*)["']/g;
+      var match;
+      while ((match = strRegex.exec(rawTextMatch[1])) !== null) {
+        items.push(match[1]);
+      }
+      if (items.length > 0) {
+        result.raw_text = items;
+      }
+    } catch(e) {
+      console.warn('Regex raw_text extraction failed:', e);
+    }
+  }
+
+  // 嘗試從文字中以 Regex 提取 profiles 陣列，作為 JSON 解析失敗時的極限備援
+  var profilesMatch = decodedText.match(/["']?profiles?["']?\s*:\s*\[([\s\S]*?)\]/i);
+  if (profilesMatch && profilesMatch[1]) {
+    try {
+      var profilesList = [];
+      var objRegex = /\{([\s\S]*?)\}/g;
+      var objMatch;
+      while ((objMatch = objRegex.exec(profilesMatch[1])) !== null) {
+        var pObj = {};
+        ['company','title','phone','email','address'].forEach(function(f) {
+          var re = new RegExp('["\']?' + f + '["\']?\\s*:\\s*["\']([^"\']*)["\']', 'i');
+          var m = objMatch[1].match(re);
+          if (m && m[1]) pObj[f] = m[1];
+        });
+        if (Object.keys(pObj).length > 0) {
+          profilesList.push(pObj);
+        }
+      }
+      if (profilesList.length > 0) {
+        result.profiles = profilesList;
+      }
+    } catch(e) {
+      console.warn('Regex profiles extraction failed:', e);
+    }
+  }
+
+  // 嘗試從文字中以 Regex 正則提取 corners 坐標，作為 JSON 解析失敗時的極限備援
+  var cornersMatch = decodedText.match(/["']?corners["']?\s*:\s*\{[\s\S]*?\}/i);
+  if (cornersMatch) {
+    try {
+      var cleanCornersStr = cornersMatch[0].replace(/"corners"\s*:\s*/, '');
+      var braceMatch = cleanCornersStr.match(/\{[\s\S]*?\}/);
+      if (braceMatch) {
+        result.corners = JSON.parse(braceMatch[0]);
+      }
+    } catch(e) {
+      var tlM = decodedText.match(/"tl"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
+      var trM = decodedText.match(/"tr"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
+      var brM = decodedText.match(/"br"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
+      var blM = decodedText.match(/"bl"\s*:\s*\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]/i);
+      if (tlM && trM && brM && blM) {
+        result.corners = {
+          tl: [parseFloat(tlM[1]), parseFloat(tlM[2])],
+          tr: [parseFloat(trM[1]), parseFloat(trM[2])],
+          br: [parseFloat(brM[1]), parseFloat(brM[2])],
+          bl: [parseFloat(blM[1]), parseFloat(blM[2])]
+        };
+      }
+    }
+  }
+  // 嘗試從文字中以 Regex 提取 rotation_angle
+  var rotMatch = decodedText.match(/["']?rotation_?angle["']?\s*:\s*(-?\d+)/i);
+  if (rotMatch) {
+    result.rotation_angle = parseInt(rotMatch[1]);
+  } else {
+    var rotMatch2 = decodedText.match(/["']?rotationAngle["']?\s*:\s*(-?\d+)/i);
+    if (rotMatch2) result.rotation_angle = parseInt(rotMatch2[1]);
+  }
+
+  return result;
+}
+
+// ── iOS 備忘錄風格全自動快門與確認交互 ──────────
+var shutterTimer = null;
+var shutterSeconds = 2.0; // 對準後 2 秒自動拍攝
+var autoSnappedBase64 = '';
+var autoWarpedBase64 = '';
+var autoParsedResult = null;
+
+function playCameraSound() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.15);
+    
+    gain.gain.setValueAtTime(0.35, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } catch(e) {
+    console.warn("快門聲播放失敗:", e);
+  }
+}
+
+async function openSmartCamera(side) {
+  activeSide = side;
+  
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    console.warn('環境不支援媒體相機，自動降級至系統原相機拍照');
+    triggerFallback(side);
+    return;
+  }
+
+  var modal = document.getElementById('cameraModal');
+  var video = document.getElementById('cameraVideo');
+  modal.style.display = 'flex';
+  
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    video.srcObject = cameraStream;
+    
+    // ── 啟動 2 秒自動快門倒數感應 ──
+    startAutoShutterCountdown();
+  } catch(err) {
+    console.warn('開啟相機失敗，降級本地檔案上傳', err);
+    closeCamera();
+    triggerFallback(side);
+  }
+}
+
+function startAutoShutterCountdown() {
+  if (shutterTimer) clearInterval(shutterTimer);
+  var cd = document.getElementById('shutterCountdown');
+  var secLeft = 2.0;
+  cd.textContent = '🟡 鎖定名片中…';
+  cd.style.color = '#FFD54F';
+  
+  shutterTimer = setInterval(function() {
+    secLeft -= 0.5;
+    if (secLeft <= 1.0 && secLeft > 0) {
+      cd.textContent = '⚡️ 自動拍攝中…';
+      cd.style.color = '#00E676';
+    }
+    if (secLeft <= 0) {
+      clearInterval(shutterTimer);
+      shutterTimer = null;
+      triggerAutoCapture();
+    }
+  }, 500);
+}
+
+function triggerAutoCapture() {
+  var cd = document.getElementById('shutterCountdown');
+  if (cd) {
+    cd.textContent = '📸 嗶！請保持不動...';
+    cd.style.color = '#00E676';
+  }
+  
+  // 📸 第一聲快門（預備快門：提示使用者定格防手震）
+  playCameraSound();
+  
+  // 延遲 800ms 進行第二聲快門（正式快門：此時手已穩，進行正式擷取與關閉相機）
+  setTimeout(function() {
+    playCameraSound();
+    captureSnapshotAuto();
+  }, 800);
+}
+
+function captureSnapshotAuto() {
+  try {
+    var video = document.getElementById('cameraVideo');
+    if (!video || !video.videoWidth) {
+      throw new Error("視訊尚未就緒");
+    }
+    
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    
+    var rect = video.getBoundingClientRect();
+    var vwidth = rect.width;
+    var vheight = rect.height;
+    
+    var guideW = vwidth * 0.84;
+    var guideH = vheight * 0.84;
+    var guideX = (vwidth - guideW) / 2;
+    var guideY = (vheight - guideH) / 2;
+    
+    var vw = video.videoWidth;
+    var vh = video.videoHeight;
+    
+    var scale = Math.max(vwidth / vw, vheight / vh);
+    var renderW = vw * scale;
+    var renderH = vh * scale;
+    var offsetX = (renderW - vwidth) / 2;
+    var offsetY = (renderH - vheight) / 2;
+    
+    var realX = Math.floor((guideX + offsetX) / scale);
+    var realY = Math.floor((guideY + offsetY) / scale);
+    var realW = Math.floor(guideW / scale);
+    var realH = Math.floor(guideH / scale);
+    
+    realX = Math.max(0, Math.min(vw - 10, realX));
+    realY = Math.max(0, Math.min(vh - 10, realY));
+    realW = Math.max(10, Math.min(vw - realX, realW));
+    realH = Math.max(10, Math.min(vh - realY, realH));
+    
+    canvas.width = realW;
+    canvas.height = realH;
+    
+    ctx.drawImage(video, realX, realY, realW, realH, 0, 0, realW, realH);
+    var snappedBase64 = canvas.toDataURL('image/jpeg', 0.95);
+    
+    autoSnappedBase64 = snappedBase64;
+    
+    // 關閉相機，開始處理 AI 自動定位拉平與辨識
+    closeCamera();
+    
+    // 發送給 AI 進行「全自動 3D 透視裁切與 OCR 辨識」
+    toast('🤖 AI 正在自動提取邊界與分析資訊…', 'info');
+    processOcr(snappedBase64, activeSide);
+    
+  } catch (err) {
+    console.error("自動拍照失敗:", err);
+    closeCamera();
+    triggerFallback(activeSide);
+  }
+}
+
+function closeCamera() {
+  var modal = document.getElementById('cameraModal');
+  modal.style.display = 'none';
+  if (shutterTimer) {
+    clearInterval(shutterTimer);
+    shutterTimer = null;
+  }
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  var video = document.getElementById('cameraVideo');
+  video.srcObject = null;
+}
+
+function updateConfirmPreviewAspectRatio(width, height) {
+  var wrapper = document.getElementById('confirmPreviewImgWrapper');
+  if (!wrapper) return;
+  
+  if (width && height) {
+    var ratio = width / height;
+    wrapper.style.aspectRatio = ratio;
+    
+    // 限制最大高度或寬度，避免直式名片在長螢幕上高度過高超出可見區
+    if (ratio < 1) {
+      // 直式名片
+      wrapper.style.width = 'auto';
+      wrapper.style.height = '48vh'; // 高度限制在螢幕高度的 48%，確保按鈕可見不被擠出
+      wrapper.style.maxWidth = '340px';
+    } else {
+      // 橫式名片
+      wrapper.style.width = '90%';
+      wrapper.style.height = 'auto';
+      wrapper.style.maxWidth = '340px';
+    }
+  } else {
+    wrapper.style.aspectRatio = '1.6 / 1';
+    wrapper.style.width = '90%';
+    wrapper.style.height = 'auto';
+  }
+}
+
+// ── 暫存成果與保存/重拍交互 ──
+function showConfirmModal(warpedImgUrl, parsedResult) {
+  autoWarpedBase64 = warpedImgUrl;
+  autoParsedResult = parsedResult;
+  
+  var modal = document.getElementById('confirmModal');
+  var img = document.getElementById('confirmPreviewImg');
+  img.src = warpedImgUrl;
+  
+  // 💡 動態調整預覽視窗比例，防止 iOS Safari 渲染變形
+  var tempImg = new Image();
+  tempImg.onload = function() {
+    updateConfirmPreviewAspectRatio(tempImg.width, tempImg.height);
+  };
+  tempImg.src = warpedImgUrl;
+  
+  var diag = document.getElementById('confirmDiagnosticInfo');
+  if (diag) {
+    if (parsedResult && parsedResult.corners) {
+      var c = parsedResult.corners;
+      var tl = c.tl || c.TL;
+      var tr = c.tr || c.TR;
+      var br = c.br || c.BR;
+      var bl = c.bl || c.BL;
+      diag.textContent = '🔍 AI 定位點: tl[' + (tl||'—') + '], tr[' + (tr||'—') + '], br[' + (br||'—') + '], bl[' + (bl||'—') + ']';
+    } else {
+      diag.textContent = '🔍 AI 定位點: 未偵測到四角 (使用原圖)';
+    }
+  }
+  
+  modal.style.display = 'flex';
+}
+
+function retakePhoto() {
+  // 關閉暫存確認窗，直接重新開啟相機，再次感應掃描！
+  document.getElementById('confirmModal').style.display = 'none';
+  openSmartCamera(activeSide);
+}
+
+function savePhotoAndGo() {
+  // 用戶確認保留名片！
+  document.getElementById('confirmModal').style.display = 'none';
+  
+  // 1. 將拉平裁切後的高清名片圖寫入預覽槽！
+  var prevId = activeSide === 'front' ? 'scanPreview' : 'scanPreviewBack';
+  var prev = document.getElementById(prevId);
+  prev.src = autoWarpedBase64;
+  prev.style.display = 'block';
+  
+  var rcId = activeSide === 'front' ? 'rotateControl' : 'rotateControlBack';
+  var rc = document.getElementById(rcId);
+  if (rc) rc.style.display = 'flex';
+  
+  // 2. 將 AI 提取的資訊寫入表單！
+  if (autoParsedResult) {
+    writeParsedDataToForm(autoParsedResult, activeSide);
+  }
+  toast('🎉 名片自動掃描存檔成功！', 'ok');
+}
+
+function decodePIIMask(str, type) {
+  if (!str) return '';
+  var s = String(str).trim();
+  
+  // 1. 還原 Email 遮罩：將 _at_ / [at] / (at) 轉為 @，將 _dot_ / [dot] / (dot) 轉為 .，並移除所有空格
+  s = s.replace(/_at_|\s*\[at\]\s*|\s*\(at\)\s*/gi, '@')
+       .replace(/_dot_|\s*\[dot\]\s*|\s*\(dot\)\s*/gi, '.');
+  
+  if (type === 'email') {
+    s = s.replace(/\s+/g, '');
+  }
+  
+  // 2. 還原電話遮罩：移除所有空格與底線，並在合適位置補上連字號
+  if (type === 'phone') {
+    s = s.replace(/[\s_]+/g, ''); // 移除空格與底線
+    // 手機格式化 0910241271 -> 0910-241-271
+    if (/^09\d{8}$/.test(s)) {
+      s = s.substring(0, 4) + '-' + s.substring(4, 7) + '-' + s.substring(7);
+    } else if (/^02\d{8}$/.test(s)) {
+      s = s.substring(0, 2) + '-' + s.substring(2, 6) + '-' + s.substring(6);
+    } else if (/^0[3-9]\d{7,8}$/.test(s)) {
+      s = s.substring(0, 3) + '-' + s.substring(3, 6) + '-' + s.substring(6);
+    }
+  }
+  return s;
+}
+
+function writeParsedDataToForm(parsed, side) {
+  try {
+    var name = parsed.name ? String(parsed.name).trim() : '';
+    if (name) {
+      var nameEl = document.getElementById('fName');
+      if (nameEl) nameEl.value = name;
+    }
+    
+    // 🔍 診斷通知：顯示載入之屬性鍵
+    var keys = Object.keys(parsed).filter(function(k) { return parsed[k] !== undefined && parsed[k] !== null; });
+    console.log('[writeParsedDataToForm keys]:', keys);
+    var toastMsg = '🔍 AI 載入屬性 [' + (parsed._isFallback ? '備援' : 'JSON') + ']: ' + keys.filter(function(k){return k !== '_isFallback';}).join(', ');
+    if (parsed._isFallback) {
+      toastMsg += ' (若資訊不全，可至「設定」展開「AI 辨識日誌」查看原始回傳內容)';
+    }
+    toast(toastMsg, 'info');
+
+    // 1. 解析出結構化的身分群組 (Profiles)
+    var incomingProfiles = [];
+    if (parsed.profiles && Array.isArray(parsed.profiles)) {
+      parsed.profiles.forEach(function(item) {
+        if (item && typeof item === 'object') {
+          incomingProfiles.push({
+            company: item.company ? String(item.company).trim() : '',
+            title: item.title ? String(item.title).trim() : '',
+            phone: item.phone ? decodePIIMask(item.phone, 'phone') : '',
+            email: item.email ? decodePIIMask(item.email, 'email') : '',
+            address: item.address ? String(item.address).trim() : ''
+          });
+        } else if (item && typeof item === 'string') {
+          // AI 稀有情況下回傳字串陣列時之安全相容
+          incomingProfiles.push({
+            company: item.trim(),
+            title: parsed.title ? String(parsed.title).trim() : '',
+            phone: parsed.phone ? decodePIIMask(parsed.phone, 'phone') : '',
+            email: parsed.email ? decodePIIMask(parsed.email, 'email') : '',
+            address: parsed.address ? String(parsed.address).trim() : ''
+          });
+        }
+      });
+    } else {
+      // 備援方案：將舊扁平格式轉為身分群組
+      function splitFlatVal(val) {
+        if (!val) return [];
+        return String(val).split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
+      }
+      var companies = splitFlatVal(parsed.company);
+      var titles = splitFlatVal(parsed.title);
+      var phones = splitFlatVal(parsed.phone).map(function(p){ return decodePIIMask(p, 'phone'); });
+      var emails = splitFlatVal(parsed.email).map(function(e){ return decodePIIMask(e, 'email'); });
+      var addresses = splitFlatVal(parsed.address);
+      
+      var count = Math.max(companies.length, titles.length, 1);
+      for (var i = 0; i < count; i++) {
+        incomingProfiles.push({
+          company: companies[i] || companies[0] || '',
+          title: titles[i] || titles[0] || '',
+          phone: phones[i] || phones[0] || '',
+          email: emails[i] || emails[0] || '',
+          address: addresses[i] || addresses[0] || ''
+        });
+      }
+    }
+
+    // 👔 屬性補全備援：若 profiles 陣列內的子項缺少 phone/email/address，自動繼承根目錄對應欄位
+    incomingProfiles.forEach(function(p) {
+      if (p && typeof p === 'object') {
+        if (!p.phone && parsed.phone) p.phone = decodePIIMask(parsed.phone, 'phone');
+        if (!p.email && parsed.email) p.email = decodePIIMask(parsed.email, 'email');
+        if (!p.address && parsed.address) p.address = parsed.address;
+      }
+    });
+
+    // 過濾掉全空的 Profile
+    incomingProfiles = incomingProfiles.filter(function(p) {
+      return p.company || p.title || p.phone || p.email || p.address;
+    });
+
+    // 💡 公司行號分流優化：若 company 包含 "/"，自動拆分為獨立的多個 Profile 行列，確保清爽
+    var splitProfiles = [];
+    incomingProfiles.forEach(function(p) {
+      if (p.company && p.company.indexOf('/') !== -1) {
+        var companyParts = p.company.split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
+        companyParts.forEach(function(comp) {
+          splitProfiles.push({
+            company: comp,
+            title: p.title || '',
+            phone: p.phone || '',
+            email: p.email || '',
+            address: p.address || ''
+          });
+        });
+      } else {
+        splitProfiles.push(p);
+      }
+    });
+    incomingProfiles = splitProfiles;
+
+    // 💡 側邊覆寫邏輯：重拍同一個面時，清除該面先前的 Profiles 進行覆寫，保留另一面的資料
+    if (!S.currentProfiles) S.currentProfiles = [];
+    if (side) {
+      incomingProfiles.forEach(function(p) { p.side = side; });
+      S.currentProfiles = S.currentProfiles.filter(function(p) {
+        return p.side !== side;
+      });
+    }
+
+    // 💡 核心優化：跨正/反面身分群組「疊加合併」邏輯
+    incomingProfiles.forEach(function(ip) {
+      var exists = false;
+      for (var i = 0; i < S.currentProfiles.length; i++) {
+        var ep = S.currentProfiles[i];
+        if (ep.company.trim() === ip.company.trim() && ep.title.trim() === ip.title.trim()) {
+          exists = true;
+          // 合併多組電話
+          if (ip.phone) {
+            var epPhones = ep.phone.split(/\s*\/\s*/).map(s => s.trim());
+            ip.phone.split(/\s*\/\s*/).forEach(function(phonePart) {
+              var cp = phonePart.trim();
+              if (cp && epPhones.indexOf(cp) === -1) epPhones.push(cp);
+            });
+            ep.phone = epPhones.join(' / ');
+          }
+          // 合併 Email
+          if (ip.email) {
+            var epEmails = ep.email.split(/\s*\/\s*/).map(s => s.trim());
+            ip.email.split(/\s*\/\s*/).forEach(function(emailPart) {
+              var ce = emailPart.trim();
+              if (ce && epEmails.indexOf(ce) === -1) epEmails.push(ce);
+            });
+            ep.email = epEmails.join(' / ');
+          }
+          // 合併地址
+          if (ip.address && ep.address.indexOf(ip.address) === -1) {
+            ep.address = ip.address;
+          }
+          if (ip.side) ep.side = ip.side;
+          break;
+        }
+      }
+      if (!exists) {
+        S.currentProfiles.push(ip);
+      }
+    });
+
+    if (S.currentProfiles.length === 0) return 0;
+
+    var masterContainer = document.getElementById('profileSelectorContainer');
+    var masterSelector = document.getElementById('fProfileSelector');
+
+    // 2. 如果有多重身分組，顯示主選擇器
+    if (S.currentProfiles.length > 1) {
+      if (masterSelector && masterContainer) {
+        masterSelector.innerHTML = '';
+        S.currentProfiles.forEach(function(p, idx) {
+          var opt = document.createElement('option');
+          opt.value = idx;
+          opt.textContent = (idx + 1) + '. ' + (p.company || '無公司') + ' (' + (p.title || '無職稱') + ')';
+          masterSelector.appendChild(opt);
+        });
+        masterContainer.style.display = 'block';
+        
+        masterSelector.onchange = function() {
+          applyProfileData(S.currentProfiles[this.value]);
+        };
+      }
+    } else {
+      if (masterContainer) masterContainer.style.display = 'none';
+    }
+
+    // 3. 預設載入最新感應拍攝之側邊（side）的第一個身分資訊，讓使用者知道有成功解析，且切換順序更自然
+    var defaultIdx = 0;
+    if (side) {
+      for (var i = 0; i < S.currentProfiles.length; i++) {
+        if (S.currentProfiles[i].side === side) {
+          defaultIdx = i;
+          break;
+        }
+      }
+    } else {
+      defaultIdx = S.currentProfiles.length - 1;
+    }
+    if (masterSelector) masterSelector.value = defaultIdx;
+    applyProfileData(S.currentProfiles[defaultIdx]);
+
+    // 4. 僅顯示當前拍攝面的原始文字氣泡段落，不與另一面疊加，解決狀態殘留 Bug
+    S.currentRawText = [];
+    if (parsed.raw_text && Array.isArray(parsed.raw_text)) {
+      parsed.raw_text.forEach(function(t) {
+        var clean = String(t).trim();
+        if (clean) {
+          var decodedClean = clean;
+          if (clean.indexOf('_at_') !== -1 || clean.indexOf('[at]') !== -1 || clean.indexOf('(at)') !== -1) {
+            decodedClean = decodePIIMask(clean, 'email');
+          } else if (/^\+?\d[\d\s_-]{6,}\d$/.test(clean)) {
+            decodedClean = decodePIIMask(clean, 'phone');
+          } else {
+            decodedClean = decodePIIMask(clean);
+          }
+          S.currentRawText.push({ text: decodedClean, side: side || 'front' });
+        }
+      });
+    }
+    
+    var rawTextStrings = S.currentRawText.map(function(rt) { return rt.text; });
+    renderRawTextPills(rawTextStrings);
+    
+    return S.currentProfiles.length;
+  } catch(err) {
+    console.error('writeParsedDataToForm error:', err);
+    toast('❌ 欄位填入出錯: ' + err.message, 'err');
+    return 0;
+  }
+}
+
+// 實體欄位寫入與子下拉選單同步函數
+function applyProfileData(profile) {
+  if (!profile) return;
+  // 清理舊的下拉選單
+  clearAllFormSelects();
+
+  var map = {
+    company: 'fCompany',
+    title: 'fTitle',
+    phone: 'fPhone',
+    email: 'fEmail',
+    address: 'fAddress'
+  };
+
+  Object.keys(map).forEach(function(k) {
+    var el = document.getElementById(map[k]);
+    if (!el) return;
+
+    var val = profile[k] ? String(profile[k]).trim() : '';
+    el.value = ''; // 先排空
+    
+    if (!val) return;
+
+    // 將單一欄位內用 " / " 分隔的多組值再作切分 (如一個公司有兩支電話)
+    var candidates = val.split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
+    if (candidates.length === 0) return;
+
+    if (candidates.length === 1) {
+      el.value = candidates[0];
+    } else {
+      el.value = candidates[0];
+      renderCandidateSelect(el, candidates);
+    }
+
+    // 💡 邏輯連動：當地址填入時，自動解析「區域」（加上「臺/台」容錯）
+    if (k === 'address') {
+      var regionEl = document.getElementById('fRegion');
+      var addressVal = el.value.trim().replace(/臺/g, '台');
+      if (regionEl && addressVal) {
+        var regions = [
+          '台北市', '新北市', '桃園市', '台中市', '台南市', '高雄市', 
+          '基隆市', '新竹市', '嘉義市', '新竹縣', '苗栗縣', '彰化縣', 
+          '南投縣', '雲林縣', '嘉義縣', '屏東縣', '宜蘭縣', '花蓮縣', 
+          '台東縣', '澎湖縣', '金門縣', '連江縣'
+        ];
+        for (var i = 0; i < regions.length; i++) {
+          var r = regions[i];
+          if (addressVal.indexOf(r) !== -1 || addressVal.indexOf(r.substring(0, 2)) !== -1) {
+            regionEl.value = r;
+            break;
+          }
+        }
+      }
+    }
+  });
+}
+
+// 💡 當地址改變時，自動解析「區域」（支援「臺」與「台」容錯）
+function autoDetectRegionFromAddress() {
+  var addressEl = document.getElementById('fAddress');
+  var regionEl = document.getElementById('fRegion');
+  if (!addressEl || !regionEl) return;
+  
+  var addressVal = addressEl.value.trim().replace(/臺/g, '台');
+  if (!addressVal) return;
+  
+  var regions = [
+    '台北市', '新北市', '桃園市', '台中市', '台南市', '高雄市', 
+    '基隆市', '新竹市', '嘉義市', '新竹縣', '苗栗縣', '彰化縣', 
+    '南投縣', '雲林縣', '嘉義縣', '屏東縣', '宜蘭縣', '花蓮縣', 
+    '台東縣', '澎湖縣', '金門縣', '連江縣'
+  ];
+  for (var i = 0; i < regions.length; i++) {
+    var r = regions[i];
+    if (addressVal.indexOf(r) !== -1 || addressVal.indexOf(r.substring(0, 2)) !== -1) {
+      regionEl.value = r;
+      break;
+    }
+  }
+}
+
+
+// ── 智慧相機與自動裁切定位 ────────────────────
+var cameraStream = null;
+var activeSide = 'front';
+
+function triggerFallback(side) {
+  var fileInputId = side === 'front' ? 'imgUploadFallback' : 'imgUploadBackFallback';
+  var fallbackInput = document.getElementById(fileInputId);
+  if (fallbackInput) {
+    fallbackInput.click();
+  }
+}
+
+function captureSnapshot() {
+  try {
+    var video = document.getElementById('cameraVideo');
+    if (!video || !video.videoWidth) {
+      throw new Error("視訊串流尚未就緒，請稍候重試");
+    }
+    
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    
+    // 1. 獲取視訊與定位框在網頁上的實際顯示幾何尺寸
+    var rect = video.getBoundingClientRect();
+    var vwidth = rect.width;
+    var vheight = rect.height;
+    
+    // 綠色引導框在 CSS 中是 84% 寬高，且置中
+    var guideW = vwidth * 0.84;
+    var guideH = vheight * 0.84;
+    var guideX = (vwidth - guideW) / 2;
+    var guideY = (vheight - guideH) / 2;
+    
+    // 2. 獲取視訊流底層真實解析度 (如 1280x720)
+    var vw = video.videoWidth;
+    var vh = video.videoHeight;
+    
+    // 3. 計算 object-fit: cover 渲染模式下的縮放比率與裁剪偏移
+    var scale = Math.max(vwidth / vw, vheight / vh);
+    var renderW = vw * scale;
+    var renderH = vh * scale;
+    var offsetX = (renderW - vwidth) / 2;
+    var offsetY = (renderH - vheight) / 2;
+    
+    // 4. 將網頁引導框坐標，精確映射回視訊流的底層真實坐標
+    var realX = Math.floor((guideX + offsetX) / scale);
+    var realY = Math.floor((guideY + offsetY) / scale);
+    var realW = Math.floor(guideW / scale);
+    var realH = Math.floor(guideH / scale);
+    
+    // 限制範圍防止越界
+    realX = Math.max(0, Math.min(vw - 10, realX));
+    realY = Math.max(0, Math.min(vh - 10, realY));
+    realW = Math.max(10, Math.min(vw - realX, realW));
+    realH = Math.max(10, Math.min(vh - realY, realH));
+    
+    canvas.width = realW;
+    canvas.height = realH;
+    
+    // 5. 執行 100% 精準裁切
+    ctx.drawImage(video, realX, realY, realW, realH, 0, 0, realW, realH);
+    
+    var snappedBase64 = canvas.toDataURL('image/jpeg', 0.95);
+    
+    // 更新預覽槽
+    var prevId = activeSide === 'front' ? 'scanPreview' : 'scanPreviewBack';
+    var prev = document.getElementById(prevId);
+    prev.src = snappedBase64;
+    prev.style.display = 'block';
+    
+    var rcId = activeSide === 'front' ? 'rotateControl' : 'rotateControlBack';
+    var rc = document.getElementById(rcId);
+    if (rc) rc.style.display = 'flex';
+    
+    closeCamera();
+    toast('📸 已精準裁切名片影像，正在辨識細小欄位…', 'ok');
+    
+    // 執行 OCR 辨識
+    openCropModal(snappedBase64, activeSide);
+  } catch (err) {
+    console.error("智慧拍照擷取與精準裁切失敗:", err);
+    alert("📸 智慧鏡頭拍照失敗: " + err.message + "\n將為您切換至手動拍照上傳");
+    closeCamera();
+    triggerFallback(activeSide);
+  }
+}
+
+// ── 3D 透視裁切與拉平引擎 ────────────────────
+var cropSide = 'front';
+var cropImgDataUrl = '';
+var cropDots = [
+  { x: 30, y: 30 },   // TL
+  { x: 330, y: 30 },  // TR
+  { x: 330, y: 240 }, // BR
+  { x: 30, y: 240 }   // BL
+];
+var activeDot = null;
+var startTouchPos = { x: 0, y: 0 };
+var startDotPos = { x: 0, y: 0 };
+
+function openCropModal(imgDataUrl, side) {
+  var m = document.getElementById('cropModal');
+  if (!m) return;
+  m.style.display = 'flex';
+  cropSide = side;
+  cropImgDataUrl = imgDataUrl;
+  
+  var img = document.getElementById('cropSourceImg');
+  img.src = imgDataUrl;
+  
+  // 載入後初始化裁切點
+  img.onload = function() {
+    initCropDots();
+  };
+}
+
+function closeCropModal() {
+  var m = document.getElementById('cropModal');
+  if (m) m.style.display = 'none';
+}
+
+function initCropDots() {
+  var wrapper = document.getElementById('cropWrapper');
+  var w = wrapper.clientWidth;
+  var h = wrapper.clientHeight;
+  
+  // 預設將四角點初始化在中心偏邊緣的名片形狀
+  cropDots = [
+    { id: 'pt_tl', x: Math.floor(w * 0.15), y: Math.floor(h * 0.15) },
+    { id: 'pt_tr', x: Math.floor(w * 0.85), y: Math.floor(h * 0.15) },
+    { id: 'pt_br', x: Math.floor(w * 0.85), y: Math.floor(h * 0.85) },
+    { id: 'pt_bl', x: Math.floor(w * 0.15), y: Math.floor(h * 0.85) }
+  ];
+  
+  updateCropUi();
+  setupTouchEvents();
+}
+
+function updateCropUi() {
+  cropDots.forEach(function(dot) {
+    var el = document.getElementById(dot.id);
+    if (el) {
+      el.style.left = dot.x + 'px';
+      el.style.top = dot.y + 'px';
+    }
+  });
+  
+  // 更新綠色半透明多邊形蒙版
+  var poly = document.getElementById('cropPolygon');
+  if (poly) {
+    var pts = cropDots.map(d => d.x + ',' + d.y).join(' ');
+    poly.setAttribute('points', pts);
+  }
+}
+
+function setupTouchEvents() {
+  var dots = ['pt_tl', 'pt_tr', 'pt_br', 'pt_bl'];
+  var wrapper = document.getElementById('cropWrapper');
+  
+  dots.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    
+    // 清除舊監聽以防重複綁定
+    var newEl = el.cloneNode(true);
+    el.parentNode.replaceChild(newEl, el);
+    el = newEl;
+    
+    function onStart(e) {
+      e.preventDefault();
+      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      
+      var dot = cropDots.find(d => d.id === id);
+      activeDot = dot;
+      startTouchPos = { x: clientX, y: clientY };
+      startDotPos = { x: dot.x, y: dot.y };
+    }
+    
+    el.addEventListener('touchstart', onStart, { passive: false });
+    el.addEventListener('mousedown', onStart);
+  });
+  
+  function onMove(e) {
+    if (!activeDot) return;
+    e.preventDefault();
+    var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    var dx = clientX - startTouchPos.x;
+    var dy = clientY - startTouchPos.y;
+    
+    var wrapper = document.getElementById('cropWrapper');
+    var w = wrapper.clientWidth;
+    var h = wrapper.clientHeight;
+    
+    // 計算新坐標並限制在工作台邊界內
+    var newX = Math.max(0, Math.min(w, startDotPos.x + dx));
+    var newY = Math.max(0, Math.min(h, startDotPos.y + dy));
+    
+    activeDot.x = Math.floor(newX);
+    activeDot.y = Math.floor(newY);
+    
+    updateCropUi();
+  }
+  
+  function onEnd() {
+    activeDot = null;
+  }
+  
+  wrapper.addEventListener('touchmove', onMove, { passive: false });
+  wrapper.addEventListener('mousemove', onMove);
+  window.addEventListener('touchend', onEnd);
+  window.addEventListener('mouseup', onEnd);
+}
+
+// ── 雙三角形仿射變換 3D 透視拉平重投影核心算法 ────────────────
+function performPerspectiveWarp() {
+  toast('✂️ 正在進行 3D 空間透視重構與拉平…', 'info');
+  
+  var img = document.getElementById('cropSourceImg');
+  var wrapper = document.getElementById('cropWrapper');
+  
+  // 獲取圖片在 wrapper 中 object-fit: contain 渲染下的真實邊界與縮放
+  var wrapperW = wrapper.clientWidth;
+  var wrapperH = wrapper.clientHeight;
+  var imgW = img.naturalWidth;
+  var imgH = img.naturalHeight;
+  
+  var scale = Math.min(wrapperW / imgW, wrapperH / imgH);
+  var renderW = imgW * scale;
+  var renderH = imgH * scale;
+  var offsetX = (wrapperW - renderW) / 2;
+  var offsetY = (wrapperH - renderH) / 2;
+  
+  // 將工作台上的網頁坐標，逆向對應回原始大圖的真實像素坐標
+  var srcPoints = cropDots.map(function(d) {
+    return {
+      x: (d.x - offsetX) / scale,
+      y: (d.y - offsetY) / scale
+    };
+  });
+  
+  // 目標拉直後的名片寬高 (黃金比例 1.6 : 1，取大尺寸 1600px 以便清晰解析)
+  var targetW = 1600;
+  var targetH = 1000;
+  
+  var canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+  var ctx = canvas.getContext('2d');
+  
+  // 目標對應的 4 個角
+  var dstPoints = [
+    { x: 0, y: 0 },
+    { x: targetW, y: 0 },
+    { x: targetW, y: targetH },
+    { x: 0, y: targetH }
+  ];
+  
+  try {
+    // 💡 雙三角形剖分 + 仿射投影法，實現完美 3D 透視拉平
+    // 三角形 1: TL -> TR -> BL
+    drawAffineTriangle(ctx, img, srcPoints[0], srcPoints[1], srcPoints[3], dstPoints[0], dstPoints[1], dstPoints[3]);
+    // 三角形 2: TR -> BR -> BL
+    drawAffineTriangle(ctx, img, srcPoints[1], srcPoints[2], srcPoints[3], dstPoints[1], dstPoints[2], dstPoints[3]);
+    
+    var warpedBase64 = canvas.toDataURL('image/jpeg', 0.92);
+    
+    // 將拉平後的影像更新到對應槽的預覽圖中！
+    var prevId = cropSide === 'front' ? 'scanPreview' : 'scanPreviewBack';
+    var prev = document.getElementById(prevId);
+    prev.src = warpedBase64;
+    prev.style.display = 'block';
+    
+    var rcId = cropSide === 'front' ? 'rotateControl' : 'rotateControlBack';
+    var rc = document.getElementById(rcId);
+    if (rc) rc.style.display = 'flex';
+    
+    closeCropModal();
+    toast('✅ 3D 透視拉平成功！正在發送高清辨識…', 'ok');
+    
+    // 發送給 AI 辨識
+    processOcr(warpedBase64, cropSide);
+    
+  } catch (err) {
+    console.error("透視拉平失敗:", err);
+    toast('❌ 裁切拉平失敗，將直接使用原圖辨識', 'err');
+    closeCropModal();
+    processOcr(cropImgDataUrl, cropSide);
+  }
+}
+
+// 利用 Canvas 2D Transform 仿射變換渲染單個三角形
+function drawAffineTriangle(ctx, img, s0, s1, s2, d0, d1, d2) {
+  ctx.save();
+  
+  // 建立三角形剪裁路徑，避免邊緣像素溢出
+  ctx.beginPath();
+  ctx.moveTo(d0.x, d0.y);
+  ctx.lineTo(d1.x, d1.y);
+  ctx.lineTo(d2.x, d2.y);
+  ctx.closePath();
+  ctx.clip();
+  
+  // 計算仿射變換矩陣係數
+  // 方程: D = M * S => M = D * S_inv
+  var den = (s0.x - s2.x) * (s1.y - s2.y) - (s1.x - s2.x) * (s0.y - s2.y);
+  if (Math.abs(den) < 0.0001) return;
+  
+  var a = ((d0.x - d2.x) * (s1.y - s2.y) - (d1.x - d2.x) * (s0.y - s2.y)) / den;
+  var b = ((d0.y - d2.y) * (s1.y - s2.y) - (d1.y - d2.y) * (s0.y - s2.y)) / den;
+  var c = ((d1.x - d2.x) * (s0.x - s2.x) - (d0.x - d2.x) * (s1.x - s2.x)) / den;
+  var d = ((d1.y - d2.y) * (s0.x - s2.x) - (d0.y - d2.y) * (s1.x - s2.x)) / den;
+  
+  var e = d2.x - a * s2.x - c * s2.y;
+  var f = d2.y - b * s2.x - d * s2.y;
+  
+  // 套用仿射變換矩陣並繪製
+  ctx.transform(a, b, c, d, e, f);
+  ctx.drawImage(img, 0, 0);
+  ctx.restore();
+}
+
+
+
+
+function handleImg(input, side) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = async function(e) {
+    var originalUrl = e.target.result;
+    var prevId = side === 'front' ? 'scanPreview' : 'scanPreviewBack';
+    var rcId   = side === 'front' ? 'rotateControl' : 'rotateControlBack';
+    
+    var prev = document.getElementById(prevId);
+    prev.src = originalUrl; prev.style.display = 'block';
+
+    // 顯示旋轉控制按鈕
+    var rc = document.getElementById(rcId);
+    if (rc) rc.style.display = 'flex';
+
+    // ── Step 1：壓縮圖片（手機拍的大圖先縮到 1200px）──
+    var compUrl = await compressImage(originalUrl, 1600, 0.92);
+    prev.src = compUrl; // 更新為壓縮後的圖，方便後續旋轉
+
+    openCropModal(compUrl, side);
+  };
+  reader.readAsDataURL(file);
+}
+
+async function correctImageRotation(imgUrl, angle) {
+  return new Promise(function(resolve, reject) {
+    if (!angle || angle === 0) {
+      resolve(imgUrl);
+      return;
+    }
+    var img = new Image();
+    img.onload = function() {
+      try {
+        var canvas = document.createElement('canvas');
+        var ctx = canvas.getContext('2d');
+        
+        // 修正角度：直接套用傳入的糾正角度（例如頂部朝左傳入 90 代表向右轉 90 度）
+        var correction = angle;
+        
+        if (Math.abs(correction) === 90 || Math.abs(correction) === 270) {
+          canvas.width = img.height;
+          canvas.height = img.width;
+        } else {
+          canvas.width = img.width;
+          canvas.height = img.height;
+        }
+        
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate(correction * Math.PI / 180);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+        
+        resolve(canvas.toDataURL('image/jpeg', 0.92));
+      } catch(e) {
+        reject(e);
+      }
+    };
+    img.onerror = function(err) {
+      reject(err);
+    };
+    img.src = imgUrl;
+  });
+}
+
+async function processOcr(compUrl, side) {
+  // ── Step 2：底色辨識（僅正面需要，或者都辨識）──
+  if (side === 'front') {
+    toast('🎨 辨識名片底色…', 'info');
+    var color = await detectColor(compUrl);
+    document.getElementById('fBgColor').value = color.name;
+    document.getElementById('fBgHex').value   = color.hex;
+    var cd = document.getElementById('colorDetected');
+    document.getElementById('colorDot').style.background = color.hex;
+    document.getElementById('colorLabel').textContent    = color.name;
+    cd.style.display = 'flex';
+    toast('底色：' + color.name, 'ok');
+  }
+
+  // ── Step 3：Gemini OCR ──
+  if (!S.geminiKey) {
+    toast('💡 前往設定填入 API Key 可啟用文字自動辨識', 'info');
+    return;
+  }
+
+  toast('🤖 AI 辨識名片文字中，請稍候…', 'info');
+  try {
+    document.getElementById('ocrLoadingOverlay').style.display = 'flex';
+    var b64  = compUrl.split(',')[1];
+    var mime = 'image/jpeg';
+
+    // 支持多公司與多重身分智慧提取，引導 Gemini 輸出關聯群組結構（profiles 陣列）與原始文字段落（raw_text）
+    var prompt = '';
+    if (side === 'front') {
+      prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\\n' +
+        '{\\n' +
+        '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"],\\n' +
+        '  "rotation_angle": 0,\\n' +
+        '  "name": "姓名（務必去除字元間的空格，如「劉炳界」）",\\n' +
+        '  "company": "所有公司或組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\\n' +
+        '  "title": "職稱（以 / 分隔）",\\n' +
+        '  "phone": "電話/手機（以 / 分隔，務必細心辨識出角落極小的字）",\\n' +
+        '  "email": "電子郵件（務必去除所有空格與換行，以 / 分隔）",\\n' +
+        '  "address": "地址（以 / 分隔）",\\n' +
+        '  "profiles": [\\n' +
+        '    {\\n' +
+        '      "company": "此身分的公司/組織名稱",\\n' +
+        '      "title": "此身分的職稱",\\n' +
+        '      "phone": "此身分的電話（多個以 / 分隔）",\\n' +
+        '      "email": "此身分的Email",\\n' +
+        '      "address": "此身分的地址"\\n' +
+        '    }\\n' +
+        '  ],\\n' +
+        '  "corners": {\\n' +
+        '    "tl": [左上角 x, y],\\n' +
+        '    "tr": [右上角 x, y],\\n' +
+        '    "br": [右下角 x, y],\\n' +
+        '    "bl": [左下角 x, y]\\n' +
+        '  }\\n' +
+        '}\\n' +
+        '【重要 OCR 注意事項】：\\n' +
+        '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！\\n' +
+        '2. 【邊界四角定位】：請仔細偵測圖片中「白底名片本身」的四個物理邊角，並以坐標百分比（0~1000 之間的整數，圖片左上角為 [0,0], 右上角為 [1000,0], 右下角為 [1000,1000], 左下角為 [0,1000]）輸出在 corners 屬性中，用以進行 3D 視角拉平去背。請務必精準找出卡片的真正邊界，排除周邊的桌面背景！\\n' +
+        '3. 【重要安全避讓須知（防截斷 PII 規則）】：為了防範 Google 內建隱私過濾保護（PII）無條件將回傳 JSON 斬斷，您在輸出 `raw_text`、`phone`、`email` 以及 `profiles` 中的「聯絡電話/手機」與「電子郵件Email」時，**必須**強制對其進行以下『防斷遮罩處理』，絕對不能輸出標準格式：\\n' +
+        '   - **所有 Email 遮罩**：必須將 `@` 替換為 `_at_`，其中的 `.` 替換為 `_dot_`（例如 `abc@gmail.com` 必須輸出為 `abc_at_gmail_dot_com`）。\n' +
+        '   - **所有電話/手機號碼遮罩**：必須在每兩位數字間插入一個空格，並且完全不使用 any 連字號 `-` 或括號（例如 `0910-241-271` 必須輸出為 `09 10 24 12 71`；市話 `02-7752-7908` 輸出為 `02 77 52 79 08`）。\n' +
+        '4. 【必須精準判定 rotation_angle (用於自動翻正)】：請判定名片的「頂部（Logo/公司名稱起點）」在原始圖片中的朝向位置，並填寫對應的「修正旋轉角度」（以正數代表順時針，負數代表逆時針）：若名片頂部朝上（正常，無須旋轉）請填 0；若名片頂部朝左（文字向左橫躺，需向右順時針旋轉 90 度修正）請填 90；若名片頂部朝右（文字向右橫躺，需向左逆時針旋轉 90 度修正）請填 -90；若名片頂部朝下（上下顛倒，需旋轉 180 度修正）請填 180。請仔細觀察名片的排版朝向做出精準判定，切勿盲目填 0！';
+    } else {
+      // 反面專用：不要求 Corners 定位，從而極大地簡化 JSON，100% 避免長度與 PII 安全判定導致的截斷（還原昨日 933d9aa 成功版 prompt 結構）
+      prompt = '請辨識這張名片圖片中的所有文字，並以純 JSON 格式（不含任何說明或 markdown）回傳以下結構（只輸出 JSON，不要其他贅字）：\n' +
+        '{\n' +
+        '  "raw_text": ["請在此陣列中，完整列出您在名片上偵測到的每一行字或獨立資訊片段，例如每一個電話號碼、Email、公司名、地址等，以便使用者隨時點選填入。請務必完整提取，不要遺漏任何一條字串！"],\n' +
+        '  "rotation_angle": 0,\n' +
+        '  "name": "姓名（務必去除字元間的空格，如「劉炳界」）",\n' +
+        '  "company": "所有公司或組織名稱（以 / 分隔，如包含非營利學會、公會、機關等）",\n' +
+        '  "title": "職稱（以 / 分隔）",\n' +
+        '  "phone": "電話/手機（以 / 分隔，務必細心辨識出角落極小的字）",\n' +
+        '  "email": "電子郵件（務必去除所有空格與換行，以 / 分隔）",\n' +
+        '  "address": "地址（以 / 分隔）",\n' +
+        '  "profiles": [\n' +
+        '    {\\n' +
+        '      "company": "此身分的公司/組織名稱",\n' +
+        '      "title": "此身分的職稱",\n' +
+        '      "phone": "此身分的電話（多個以 / 分隔）",\n' +
+        '      "email": "此身分的Email",\n' +
+        '      "address": "此身分的地址"\n' +
+        '    }\n' +
+        '  ]\n' +
+        '}\n' +
+        '【重要 OCR 注意事項】：\n' +
+        '1. 請特別留意並掘地三尺仔細掃描名片左下角、右下角、邊緣或底部，以極細小字體印製的「地址」、「Email」以及「電話（包含市話及傳真）」。即使字體顏色較淡或字元微小，也務必 100% 精準辨識並填入對應欄位、profiles 陣列與 raw_text 陣列中！\n' +
+        '2. 【重要安全避讓須知（防截斷 PII 規則）】：為了防範 Google 內建隱私過濾保護（PII）無條件將回傳 JSON 斬斷，您在輸出 `raw_text`、`phone`、`email` 以及 `profiles` 中的「聯絡電話/手機」與「電子郵件Email」時，**必須**強制對其進行以下『防斷遮罩處理』，絕對不能輸出標準格式：\n' +
+        '   - **所有 Email 遮罩**：必須將 `@` 替換為 `_at_`，其中的 `.` 替換為 `_dot_`（例如 `abc@gmail.com` 必須輸出為 `abc_at_gmail_dot_com`）。\n' +
+        '   - **所有電話/手機號碼遮罩**：必須在每兩位數字間插入一個空格，並且完全不使用 any 連字號 `-` 或括號（例如 `0910-241-271` 必須輸出為 `09 10 24 12 71`；市話 `02-7752-7908` 輸出為 `02 77 52 79 08`）。\n' +
+        '3. 【必須精準判定 rotation_angle (自動翻正)】：請判定名片的「頂部（Logo/公司名稱起點）」在原始圖片中的朝向位置，並填寫對應的「修正旋轉角度」（以正數代表順時針，負數代表逆時針）：若名片頂部朝上（正常，無須旋轉）請填 0；若名片頂部朝左（文字向左橫躺，需向右順時針旋轉 90 度修正）請填 90；若名片頂部朝右（文字向右橫躺，需向左逆時針旋轉 90 度修正）請填 -90；若名片頂部朝下（上下顛倒，需旋轉 180 度修正）請填 180。請仔細觀察名片的排版朝向做出精準判定，切勿盲目填 0！';
+    }
+
+    var resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1/models/' + S.geminiModel + ':generateContent?key=' + S.geminiKey,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: mime, data: b64 } },
+              { text: prompt }
+            ]
+          }],
+          generation_config: {
+            temperature: 0.1,
+            max_output_tokens: 2048
+          },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+          ]
+        })
+      }
+    );
+
+    if (!resp.ok) {
+      var errJson = await resp.json().catch(function(){ return {}; });
+      var errMsg  = (errJson.error && errJson.error.message) || 'HTTP ' + resp.status;
+      if (resp.status === 400) throw new Error('請求格式錯誤：' + errMsg);
+      if (resp.status === 403) throw new Error('API Key 無效或無權限，請重新到設定確認');
+      if (resp.status === 429) throw new Error('API 呼叫次數已達上限，請稍後再試');
+      throw new Error('API 錯誤：' + errMsg);
+    }
+
+    var respData = await resp.json();
+    var rawText = '';
+    try { rawText = respData.candidates[0].content.parts[0].text || ''; }
+    catch(ex) { throw new Error('API 回傳格式異常，請重試'); }
+
+    console.log('[Gemini API Raw Text]:', rawText);
+    lastGeminiRawResponse = rawText;
+    var txtArea = document.getElementById('txtDebugLog');
+    if (txtArea) txtArea.value = rawText;
+
+    var jt = rawText.trim()
+      .replace(/^```json\s*/i,'').replace(/^```\s*/i,'')
+      .replace(/\s*```$/,'').trim();
+    var brace = jt.match(/\{[\s\S]*\}/);
+    if (brace) jt = brace[0];
+
+    var parsed;
+    try   { 
+      // 💡 容錯 JSON 清理：自動去除註解與結尾逗號，提高 JSON.parse 成功率
+      var cleanedJt = jt
+        .replace(/\/\/.*/g, '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/,\s*([}\]])/g, '$1');
+        
+      // 💡 控制字元轉義：處理字串內部未轉義的換行/定位符，防止 JSON.parse 拋出控制字元錯誤
+      var inString = false;
+      var escapedJt = '';
+      for (var i = 0; i < cleanedJt.length; i++) {
+        var c = cleanedJt[i];
+        if (c === '"' && (i === 0 || cleanedJt[i-1] !== '\\')) {
+          inString = !inString;
+        }
+        if (inString && c === '\n') {
+          escapedJt += '\\n';
+        } else if (inString && c === '\r') {
+          // 忽略
+        } else if (inString && c === '\t') {
+          escapedJt += '\\t';
+        } else {
+          escapedJt += c;
+        }
+      }
+      
+      parsed = JSON.parse(escapedJt);
+      console.log('[Gemini JSON Parsed successfully]:', parsed);
+    }
+    catch (ex) {
+      console.warn('[Gemini JSON Parse failed, falling back to regex]:', ex);
+      parsed = extractFromText(rawText);
+      console.log('[Fallback regex parsed result]:', parsed);
+    }
+
+    // 💡 規格化旋轉角度欄位命名容錯
+    var rotAngle = 0;
+    if (parsed) {
+      if (parsed.rotation_angle !== undefined) rotAngle = parseInt(parsed.rotation_angle);
+      else if (parsed.rotationAngle !== undefined) rotAngle = parseInt(parsed.rotationAngle);
+      else if (parsed.rotation !== undefined) rotAngle = parseInt(parsed.rotation);
+      else if (parsed.angle !== undefined) rotAngle = parseInt(parsed.angle);
+    }
+    if (isNaN(rotAngle)) rotAngle = 0;
+    parsed.rotation_angle = rotAngle;
+
+    // 統一調用去重與晶片標籤渲染邏輯
+    var filled = writeParsedDataToForm(parsed, side);
+
+    // ── 全自動 3D 透視拉平與背景切除 ──
+    if (parsed.corners && (parsed.corners.tl || parsed.corners.TL)) {
+      try {
+        var img = new Image();
+        img.onload = async function() {
+          var targetW = 1600;
+          var targetH = 1000;
+          var canvas = document.createElement('canvas');
+          canvas.width = targetW;
+          canvas.height = targetH;
+          var ctx = canvas.getContext('2d');
+          
+          var imgW = img.width;
+          var imgH = img.naturalHeight || img.height;
+          
+          var c = parsed.corners;
+          
+          // 1. 統一量測尺度：遍歷所有點，找出最大值以決定縮放係數，防止 x 和 y 被不同分位除數縮放導致扭曲
+          var rawCoords = [];
+          function collectRaw(pt) {
+            if (!pt) return;
+            if (Array.isArray(pt)) {
+              rawCoords.push(parseFloat(pt[0]), parseFloat(pt[1]));
+            } else if (typeof pt === 'object') {
+              rawCoords.push(
+                parseFloat(pt.x !== undefined ? pt.x : (pt.X !== undefined ? pt.X : pt[0])),
+                parseFloat(pt.y !== undefined ? pt.y : (pt.Y !== undefined ? pt.Y : pt[1]))
+              );
+            }
+          }
+          collectRaw(c.tl || c.TL);
+          collectRaw(c.tr || c.TR);
+          collectRaw(c.br || c.BR);
+          collectRaw(c.bl || c.BL);
+          
+          var maxVal = 0;
+          rawCoords.forEach(function(v) {
+            if (!isNaN(v) && v > maxVal) maxVal = v;
+          });
+          
+          var divisor = 1.0;
+          if (maxVal > 1.0 && maxVal <= 100) {
+            divisor = 100.0;
+          } else if (maxVal > 100) {
+            divisor = 1000.0;
+          }
+          
+          console.log('[Corners Scale Detection] maxVal:', maxVal, 'divisor:', divisor);
+
+          function getPoint(pt) {
+            if (!pt) return { x: 0, y: 0 };
+            var x = 0, y = 0;
+            if (Array.isArray(pt)) {
+              x = parseFloat(pt[0]);
+              y = parseFloat(pt[1]);
+            } else if (typeof pt === 'object') {
+              x = parseFloat(pt.x !== undefined ? pt.x : (pt.X !== undefined ? pt.X : pt[0]));
+              y = parseFloat(pt.y !== undefined ? pt.y : (pt.Y !== undefined ? pt.Y : pt[1]));
+            }
+            if (isNaN(x)) x = 0;
+            if (isNaN(y)) y = 0;
+            return { x: x / divisor, y: y / divisor };
+          }
+          
+          var pTL = getPoint(c.tl || c.TL);
+          var pTR = getPoint(c.tr || c.TR);
+          var pBR = getPoint(c.br || c.BR);
+          var pBL = getPoint(c.bl || c.BL);
+          
+          // 💡 智慧邊界定位防呆防超切校正：名片理應填滿被裁切的相機框，若邊界座標異常收縮，自動拉回邊緣以保證底部與頂部文字不被切斷
+          if (pTL.y > 0.25) pTL.y = 0.02;
+          if (pTR.y > 0.25) pTR.y = 0.02;
+          if (pBL.y < 0.78) pBL.y = 0.98;
+          if (pBR.y < 0.78) pBR.y = 0.98;
+          
+          if (pTL.x > 0.25) pTL.x = 0.03;
+          if (pBL.x > 0.25) pBL.x = 0.03;
+          if (pTR.x < 0.75) pTR.x = 0.97;
+          if (pBR.x < 0.75) pBR.x = 0.97;
+          
+          // 💡 智慧四角微調（Outward Margin Padding）：
+          // 由於 AI 定位角落有時偏緊而切到邊線，自動將四個座標向外延伸 2.8% 以求完美安全餘裕
+          var pad = 0.028;
+          pTL.x = Math.max(0, pTL.x - pad); pTL.y = Math.max(0, pTL.y - pad);
+          pTR.x = Math.min(1, pTR.x + pad); pTR.y = Math.max(0, pTR.y - pad);
+          pBR.x = Math.min(1, pBR.x + pad); pBR.y = Math.min(1, pBR.y + pad);
+          pBL.x = Math.max(0, pBL.x - pad); pBL.y = Math.min(1, pBL.y + pad);
+          
+          var srcPoints = [
+            { x: pTL.x * imgW, y: pTL.y * imgH },
+            { x: pTR.x * imgW, y: pTR.y * imgH },
+            { x: pBR.x * imgW, y: pBR.y * imgH },
+            { x: pBL.x * imgW, y: pBL.y * imgH }
+          ];
+          
+          var dstPoints = [
+            { x: 0, y: 0 },
+            { x: targetW, y: 0 },
+            { x: targetW, y: targetH },
+            { x: 0, y: targetH }
+          ];
+          
+          drawAffineTriangle(ctx, img, srcPoints[0], srcPoints[1], srcPoints[3], dstPoints[0], dstPoints[1], dstPoints[3]);
+          drawAffineTriangle(ctx, img, srcPoints[1], srcPoints[2], srcPoints[3], dstPoints[1], dstPoints[2], dstPoints[3]);
+          
+          var warpedBase64 = canvas.toDataURL('image/jpeg', 0.92);
+          
+          // 💡 智慧 AI 自動旋轉判定：如果有 rotation_angle 且非 0，自動校正旋轉
+          if (parsed.rotation_angle && parsed.rotation_angle !== 0) {
+            toast('🤖 AI 偵測名片文字方向偏轉，自動為您翻正中…', 'info');
+            try {
+              warpedBase64 = await correctImageRotation(warpedBase64, parsed.rotation_angle);
+            } catch(exRot) {
+              console.warn('AI 自動旋轉失敗:', exRot);
+            }
+          }
+          
+          showConfirmModal(warpedBase64, parsed);
+        };
+        img.src = compUrl;
+      } catch(ex) {
+        console.warn('自動裁切失敗:', ex);
+        
+        var fallbackImg = compUrl;
+        if (parsed.rotation_angle && parsed.rotation_angle !== 0) {
+          toast('🤖 AI 偵測名片文字方向偏轉，自動為您翻正中…', 'info');
+          try {
+            fallbackImg = await correctImageRotation(compUrl, parsed.rotation_angle);
+          } catch(exRot) {
+            console.warn('AI 自動旋轉失敗:', exRot);
+          }
+        }
+        showConfirmModal(fallbackImg, parsed);
+      }
+    } else {
+      // 若無 Corners 定位，直接使用原圖暫存確認
+      var fallbackImg = compUrl;
+      if (parsed.rotation_angle && parsed.rotation_angle !== 0) {
+        toast('🤖 AI 偵測名片文字方向偏轉，自動為您翻正中…', 'info');
+        try {
+          fallbackImg = await correctImageRotation(compUrl, parsed.rotation_angle);
+        } catch(exRot) {
+          console.warn('AI 自動旋轉失敗:', exRot);
+        }
+      }
+      showConfirmModal(fallbackImg, parsed);
+    }
+
+    if (filled > 0) {
+      toast('✅ 已自動整合填入 ' + filled + ' 個欄位，請確認後儲存', 'ok');
+    } else {
+      toast('⚠️ 未填入新欄位。若名片方向歪斜，可按下方【左轉/右轉】翻正，系統會自動重新辨識！', 'info');
+    }
+
+  } catch(err) {
+    console.warn('[OCR]', err.message);
+    toast('❌ ' + (err.message || '辨識失敗，請手動填寫'), 'err');
+  } finally {
+    document.getElementById('ocrLoadingOverlay').style.display = 'none';
+  }
+}
+
+async function rotateConfirmPhoto(degrees) {
+  var imgEl = document.getElementById('confirmPreviewImg');
+  if (!imgEl || !imgEl.src || imgEl.src.indexOf('data:image') === -1) return;
+  
+  toast('🔄 正在旋轉名片，請稍候…', 'info');
+  var diag = document.getElementById('confirmDiagnosticInfo');
+  if (diag) {
+    diag.textContent = '⏳ 正在旋轉名片並重新執行 AI 辨識…';
+  }
+  
+  var img = new Image();
+  img.onload = async function() {
+    try {
+      var canvas = document.createElement('canvas');
+      var ctx = canvas.getContext('2d');
+      
+      if (Math.abs(degrees) === 90) {
+        canvas.width = img.height;
+        canvas.height = img.width;
+      } else {
+        canvas.width = img.width;
+        canvas.height = img.height;
+      }
+      
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(degrees * Math.PI / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      
+      var rotatedBase64 = canvas.toDataURL('image/jpeg', 0.92);
+      imgEl.src = rotatedBase64;
+      autoWarpedBase64 = rotatedBase64; // 更新暫存圖的變數
+      
+      // 💡 旋轉後立即更新預覽框的比例，防止 iOS Safari 渲染變形
+      updateConfirmPreviewAspectRatio(canvas.width, canvas.height);
+      
+      // 重新跑 OCR
+      await processOcr(rotatedBase64, activeSide);
+    } catch(err) {
+      console.error('Rotate OCR failed:', err);
+      toast('重新辨識失敗：' + err.message, 'err');
+      if (diag) {
+        diag.textContent = '❌ 重新辨識失敗：' + err.message;
+      }
+    }
+  };
+  img.src = imgEl.src;
+}
+
+function rotatePreview(degrees, side) {
+  var prevId = side === 'front' ? 'scanPreview' : 'scanPreviewBack';
+  var prev = document.getElementById(prevId);
+  if (!prev || !prev.src || prev.src.indexOf('data:image') === -1) return;
+  
+  toast('🔄 正在旋轉翻正名片，請稍候…', 'info');
+  
+  var img = new Image();
+  img.onload = async function() {
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    
+    if (Math.abs(degrees) === 90) {
+      canvas.width = img.height;
+      canvas.height = img.width;
+    } else {
+      canvas.width = img.width;
+      canvas.height = img.height;
+    }
+    
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(degrees * Math.PI / 180);
+    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+    
+    var rotatedBase64 = canvas.toDataURL('image/jpeg', 0.9);
+    prev.src = rotatedBase64;
+    
+    await processOcr(rotatedBase64, side);
+  };
+  img.src = prev.src;
+}
+
+
+async function submitCard(e) {
+  e.preventDefault();
+  var fd = new FormData(document.getElementById('addForm'));
+  var card = {};
+  fd.forEach(function(v,k){ card[k] = v.trim ? v.trim() : v; });
+  
+  if (card.industry === 'other') {
+    var customVal = document.getElementById('fIndustryCustom').value.trim();
+    card.industry = customVal || 'other';
+  }
+
+  if (!card.name) { toast('請輸入姓名', 'err'); return; }
+
+  // 儲存累積的多重身分組 (Profiles)
+  card.profiles = S.currentProfiles || [];
+
+  // 儲存正反雙面名片圖
+  var prev = document.getElementById('scanPreview');
+  if (prev.src && prev.style.display !== 'none') card.imageData = prev.src;
+  
+  var prevBack = document.getElementById('scanPreviewBack');
+  if (prevBack && prevBack.src && prevBack.style.display !== 'none') card.imageDataBack = prevBack.src;
+
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 儲存中…';
+
+  try {
+    var editId = parseInt(card.editId)||0;
+    if (editId) {
+      var existing = await dbGet(editId);
+      if (existing) { Object.assign(existing, card); delete existing.editId; await dbPut(existing); }
+      toast('名片已更新', 'ok');
+    } else {
+      delete card.editId;
+      await dbAdd(card);
+      toast('名片已新增 🎉', 'ok');
+    }
+    S.editId = null;
+    var fEditId = document.getElementById('fEditId');
+    if (fEditId) fEditId.value = '';
+    S.currentProfiles = [];
+    S.currentRawText = [];
+    clearAllFormSelects();
+    resetProfileSelectorAndPills();
+    goTo('home');
+  } catch(err) {
+    toast('儲存失敗：'+err.message, 'err');
+  } finally {
+    btn.disabled = false; btn.innerHTML = '儲存名片';
+  }
+}
+
+// ────────────────────────────────────────────
+// AI 搜尋
+// ────────────────────────────────────────────
+function suggest(text) { document.getElementById('aiInput').value = text; }
+
+async function doSearch() {
+  var q = document.getElementById('aiInput').value.trim();
+  if (!q) { toast('請輸入搜尋內容', 'err'); return; }
+  var bar = document.getElementById('aiResultBar');
+  var list= document.getElementById('aiResultList');
+  bar.className='ai-result-bar show'; bar.textContent='🔍 搜尋中…';
+  list.innerHTML='';
+  var results = await aiSearch(q);
+  bar.textContent = results.length ? '找到 '+results.length+' 張名片' : '❌ 未找到符合的名片';
+  if (results.length) {
+    list.innerHTML = results.map(cardHTML).join('');
+    list.querySelectorAll('.biz-card').forEach(function(el) {
+      el.addEventListener('click', function(){ openDetail(+el.dataset.id); });
+    });
+  }
+}
+
+// ────────────────────────────────────────────
+// 數位名片
+// ────────────────────────────────────────────
+async function loadMyCard() {
+  var data = await metaGet('mycard');
+  if (!data) return;
+  ['name','title','company','phone','email','address','website'].forEach(function(k) {
+    var el = document.getElementById('mc'+k.charAt(0).toUpperCase()+k.slice(1));
+    if (el) el.value = data[k]||'';
+  });
+  renderPreview(data);
+  renderQR(data);
+}
+
+function renderPreview(data) {
+  document.getElementById('mcPreviewName').textContent    = data.name    || '您的姓名';
+  document.getElementById('mcPreviewTitle').textContent   = [data.title,data.company].filter(Boolean).join(' · ') || '職稱 · 公司';
+  var lines = [];
+  if (data.phone)   lines.push('📞 '+data.phone);
+  if (data.email)   lines.push('✉️ '+data.email);
+  if (data.address) lines.push('📍 '+data.address);
+  document.getElementById('mcPreviewContact').textContent = lines.join('\n') || '填寫下方表單即可更新';
+}
+
+function renderQR(data) {
+  var box = document.getElementById('qrBox');
+  box.innerHTML = '';
+  if (!window.QRCode || !window.QRCode.toCanvas) { box.textContent='載入中'; return; }
+  var vcard = ['BEGIN:VCARD','VERSION:3.0',
+    'FN:'+(data.name||''), 'TITLE:'+(data.title||''), 'ORG:'+(data.company||''),
+    'TEL:'+(data.phone||''), 'EMAIL:'+(data.email||''),
+    'ADR:;;'+(data.address||'')+';;;;', 'URL:'+(data.website||''),
+    'END:VCARD'].join('\n');
+  try {
+    var canvas = document.createElement('canvas');
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    box.appendChild(canvas);
+    
+    window.QRCode.toCanvas(canvas, vcard, {
+      margin: 0,
+      errorCorrectionLevel: 'M',
+      color: {
+        dark: '#0A0A0A',
+        light: '#FFFFFF'
+      }
+    }, function(err) {
+      if (err) {
+        console.error('QR Code Generation Error:', err);
+        box.innerHTML = '';
+        box.textContent = 'QR';
+      }
+    });
+  } catch(e) {
+    console.error('QR Code Exception:', e);
+    box.innerHTML = '';
+    box.textContent = 'QR';
+  }
+}
+
+async function saveMyCard(e) {
+  e.preventDefault();
+  var fd = new FormData(document.getElementById('myCardForm'));
+  var data = {};
+  fd.forEach(function(v,k){ data[k]=v.trim(); });
+  await metaSet('mycard', data);
+  renderPreview(data);
+  renderQR(data);
+  toast('數位名片已更新', 'ok');
+}
+
+function shareMyCard() {
+  metaGet('mycard').then(function(data) {
+    if (!data) { toast('請先填寫名片資料', 'err'); return; }
+    var text = [data.name, data.company, data.phone, data.email].filter(Boolean).join(' | ');
+    if (navigator.share) {
+      navigator.share({ title:'善緣名片王 - 我的數位名片', text:text });
+    } else {
+      navigator.clipboard && navigator.clipboard.writeText(text)
+        .then(function(){ toast('已複製到剪貼簿', 'ok'); });
+    }
+  });
+}
+
+// ────────────────────────────────────────────
+// 設定頁
+// ────────────────────────────────────────────
+async function loadSettings() {
+  var key = await metaGet('geminiKey');
+  if (key) { S.geminiKey = key; document.getElementById('geminiKey').value = key; }
+  
+  var model = await metaGet('geminiModel') || 'gemini-2.5-flash';
+  S.geminiModel = model;
+  document.getElementById('geminiModel').value = model;
+  
+  updateApiStatus();
+}
+
+function updateApiStatus() {
+  var hasKey = !!S.geminiKey;
+  var statusEl = document.getElementById('apiStatus');
+  var ocrEl    = document.getElementById('ocrIcon');
+  var aiEl     = document.getElementById('aiIcon');
+  if (!statusEl) return;
+  if (hasKey) {
+    statusEl.style.background = '#E8F5E9';
+    statusEl.style.color = '#43A047';
+    statusEl.textContent = '✅ 已設定';
+    if (ocrEl) ocrEl.textContent = '✅';
+    if (aiEl)  aiEl.textContent  = '✅';
+  } else {
+    statusEl.style.background = 'var(--gray-100)';
+    statusEl.style.color = 'var(--text-hint)';
+    statusEl.textContent = '⭕ 未設定';
+    if (ocrEl) ocrEl.textContent = '⭕';
+    if (aiEl)  aiEl.textContent  = '⭕';
+  }
+}
+
+function saveGeminiKey() {
+  var val = document.getElementById('geminiKey').value.trim();
+  S.geminiKey = val;
+  metaSet('geminiKey', val).then(function(){
+    toast(val ? '✅ API Key 已儲存，OCR 與 AI 搜尋已啟用！' : 'API Key 已清除', val ? 'ok' : 'info');
+    updateApiStatus();
+  });
+}
+
+function saveGeminiModel() {
+  var val = document.getElementById('geminiModel').value;
+  S.geminiModel = val;
+  metaSet('geminiModel', val).then(function() {
+    toast('🤖 模型已切換為：' + val, 'ok');
+  });
+}
+
+var lastGeminiRawResponse = "";
+
+function toggleDebugLog() {
+  var area = document.getElementById('debugLogArea');
+  var btn = document.getElementById('btnDebugToggle');
+  if (!area || !btn) return;
+  if (area.style.display === 'none') {
+    area.style.display = 'block';
+    btn.textContent = '收合日誌';
+  } else {
+    area.style.display = 'none';
+    btn.textContent = '展開日誌';
+  }
+}
+
+function copyDebugLog() {
+  var txt = document.getElementById('txtDebugLog');
+  if (!txt) return;
+  txt.select();
+  txt.setSelectionRange(0, 99999);
+  document.execCommand('copy');
+  toast('📋 已複製日誌內容到剪貼簿', 'ok');
+}
+
+async function testApiKey() {
+  var val = document.getElementById('geminiKey').value.trim();
+  if (!val) { toast('請先輸入 API Key', 'err'); return; }
+  
+  var reportEl = document.getElementById('apiTestReport');
+  reportEl.style.display = 'block';
+  reportEl.style.background = 'var(--gray-50)';
+  reportEl.style.borderColor = 'var(--border)';
+  reportEl.style.color = 'var(--text-main)';
+  reportEl.innerHTML = '⚡️ 正在連線測試 Google API 伺服器...';
+  
+  try {
+    var resp = await fetch('https://generativelanguage.googleapis.com/v1/models?key=' + val);
+    if (!resp.ok) {
+      var errJson = await resp.json().catch(function(){ return {}; });
+      var errMsg = (errJson.error && errJson.error.message) || 'HTTP ' + resp.status;
+      reportEl.style.background = '#FFF5F5';
+      reportEl.style.borderColor = '#FFCDD2';
+      reportEl.style.color = '#B71C1C';
+      reportEl.innerHTML = '❌ <b>連線診斷失敗！</b><br>狀態碼: ' + resp.status + '<br>Google 回傳原因: ' + errMsg;
+      return;
+    }
+    
+    var data = await resp.json();
+    var models = data.models || [];
+    var modelNames = models.map(function(m){ return m.name.replace('models/', ''); });
+    var list = modelNames.filter(function(n){ return n.includes('gemini'); });
+    
+    // 檢查當前選擇的模型是否包含在可用名單中
+    var currentModel = document.getElementById('geminiModel').value;
+    var isSupported = modelNames.indexOf(currentModel) !== -1;
+    
+    reportEl.style.background = '#F1F8E9';
+    reportEl.style.borderColor = '#C5E1A5';
+    reportEl.style.color = '#33691E';
+    
+    var statusHtml = '✅ <b>連線測試成功！您的 API 金鑰有效。</b><br>';
+    statusHtml += '🎯 當前選擇模型 <b>' + currentModel + '</b>: ' + (isSupported ? '🟢 支援且可用' : '🔴 不支援，請更換') + '<br>';
+    statusHtml += '📦 您的帳戶支援的 Gemini 模型包括：<br>• ' + list.slice(0, 5).join('<br>• ') + (list.length > 5 ? '<br>• ...' : '');
+    
+    reportEl.innerHTML = statusHtml;
+  } catch(err) {
+    reportEl.style.background = '#FFF5F5';
+    reportEl.style.borderColor = '#FFCDD2';
+    reportEl.style.color = '#B71C1C';
+    reportEl.innerHTML = '❌ <b>連線異常！</b><br>請檢查網路，或確認 API Key 格式。<br>錯誤詳情: ' + err.message;
+  }
+}
+
+
+
+function toggleEye(id) {
+  var el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+// ────────────────────────────────────────────
+// AI 候選值下拉選單輔助函數 (Dynamic Select Dropdown)
+// ────────────────────────────────────────────
+function renderCandidateSelect(inputEl, candidates) {
+  var existingSelect = inputEl.parentNode.querySelector('.dynamic-select');
+  if (existingSelect) {
+    existingSelect.parentNode.removeChild(existingSelect);
+  }
+  
+  // 恢復 input 顯示以利資料同步與防手動修改遺失
+  inputEl.style.display = '';
+  
+  if (!candidates || candidates.length <= 1) return;
+  
+  // 隱藏原始文字框
+  inputEl.style.display = 'none';
+  
+  // 建立下拉選單
+  var select = document.createElement('select');
+  select.className = 'form-select dynamic-select';
+  
+  // 套用 iOS 質感樣式，右側預留三角形指示圖標
+  Object.assign(select.style, {
+    width: '100%',
+    height: '38px',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--r-md)',
+    background: 'var(--white) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 16 16\' fill=\'%23888\'%3E%3Cpath fill-rule=\'evenodd\' d=\'M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z\'/%3E%3C/svg%3E") no-repeat right 12px center',
+    backgroundSize: '12px 12px',
+    fontSize: '13px',
+    padding: '0 32px 0 var(--sp-sm)',
+    color: 'var(--text-main)',
+    outline: 'none',
+    webkitAppearance: 'none',
+    appearance: 'none',
+    marginTop: '2px'
+  });
+  
+  // 渲染選項
+  candidates.forEach(function(cand) {
+    var opt = document.createElement('option');
+    opt.value = cand;
+    opt.textContent = cand;
+    select.appendChild(opt);
+  });
+  
+  // 手動輸入選項
+  var customOpt = document.createElement('option');
+  customOpt.value = '__custom__';
+  customOpt.textContent = '✍️ 手動輸入 / 修改欄位值...';
+  select.appendChild(customOpt);
+  
+  // 設定選取值
+  var currentVal = inputEl.value.trim();
+  if (candidates.indexOf(currentVal) !== -1) {
+    select.value = currentVal;
+  } else if (currentVal) {
+    inputEl.style.display = '';
+    select.style.display = 'none';
+  } else {
+    select.value = candidates[0];
+    inputEl.value = candidates[0];
+  }
+  
+  select.onchange = function() {
+    if (this.value === '__custom__') {
+      inputEl.style.display = '';
+      select.style.display = 'none';
+      inputEl.focus();
+    } else {
+      inputEl.value = this.value;
+      var ev = new Event('change', { bubbles: true });
+      inputEl.dispatchEvent(ev);
+    }
+  };
+  
+  inputEl.parentNode.insertBefore(select, inputEl.nextSibling);
+}
+
+function clearAllFormSelects() {
+  var selects = document.querySelectorAll('.dynamic-select');
+  selects.forEach(function(s) {
+    var input = s.parentNode.querySelector('input');
+    if (input) input.style.display = '';
+    s.parentNode.removeChild(s);
+  });
+}
+
+function toggleCustomIndustry() {
+  var select = document.getElementById('fIndustry');
+  var input = document.getElementById('fIndustryCustom');
+  if (select && input) {
+    if (select.value === 'other') {
+      input.style.display = 'block';
+      input.focus();
+    } else {
+      input.style.display = 'none';
+      input.value = '';
+    }
+  }
+}
+
+function resetProfileSelectorAndPills() {
+  var masterSelContainer = document.getElementById('profileSelectorContainer');
+  if (masterSelContainer) {
+    masterSelContainer.style.display = 'none';
+    var masterSel = document.getElementById('fProfileSelector');
+    if (masterSel) masterSel.innerHTML = '';
+  }
+
+  // 同步清理 Google Lens 氣泡段落
+  var pillsContainer = document.getElementById('rawTextPillsContainer');
+  if (pillsContainer) pillsContainer.style.display = 'none';
+  var pillsDiv = document.getElementById('rawTextPills');
+  if (pillsDiv) pillsDiv.innerHTML = '';
+}
+
+function renderRawTextPills(rawTextArray) {
+  var pillsContainer = document.getElementById('rawTextPillsContainer');
+  var pillsDiv = document.getElementById('rawTextPills');
+  if (!pillsContainer || !pillsDiv) return;
+  
+  pillsDiv.innerHTML = '';
+  if (!rawTextArray || rawTextArray.length === 0) {
+    pillsContainer.style.display = 'none';
+    return;
+  }
+  
+  rawTextArray.forEach(function(text) {
+    var cleanText = String(text).trim();
+    if (!cleanText) return;
+    
+    var pill = document.createElement('button');
+    pill.type = 'button';
+    pill.className = 'raw-text-pill';
+    pill.textContent = cleanText;
+    
+    pill.onclick = function(e) {
+      showPillMenu(pill, cleanText);
+    };
+    
+    pillsDiv.appendChild(pill);
+  });
+  
+  pillsContainer.style.display = 'block';
+}
+
+function showPillMenu(btn, text) {
+  var oldMenu = document.getElementById('pillMenu');
+  if (oldMenu) oldMenu.parentNode.removeChild(oldMenu);
+  
+  var menu = document.createElement('div');
+  menu.id = 'pillMenu';
+  
+  Object.assign(menu.style, {
+    position: 'absolute',
+    background: 'var(--white)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--r-md)',
+    boxShadow: 'var(--shadow-lg)',
+    padding: '6px 0',
+    zIndex: 10000,
+    display: 'flex',
+    flexDirection: 'column',
+    minWidth: '160px'
+  });
+  
+  var fields = [
+    { label: '👤 填入姓名', id: 'fName' },
+    { label: '📞 填入電話', id: 'fPhone' },
+    { label: '🏢 填入公司', id: 'fCompany' },
+    { label: '💼 填入職稱', id: 'fTitle' },
+    { label: '✉️ 填入 Email', id: 'fEmail' },
+    { label: '📍 填入地址', id: 'fAddress' }
+  ];
+  
+  fields.forEach(function(f) {
+    var item = document.createElement('button');
+    item.type = 'button';
+    item.textContent = f.label;
+    Object.assign(item.style, {
+      background: 'none',
+      border: 'none',
+      padding: '8px 16px',
+      textAlign: 'left',
+      fontSize: '12px',
+      color: 'var(--text-main)',
+      cursor: 'pointer',
+      width: '100%',
+      outline: 'none',
+      transition: 'background 0.15s ease'
+    });
+    
+    item.onclick = function(e) {
+      e.stopPropagation();
+      var input = document.getElementById(f.id);
+      if (input) {
+        // 💡 智慧清前綴：自動過濾 'E-MAIL : ', '電話 : ', '地址 : ' 等常見前綴標籤
+        var valToFill = text.trim();
+        valToFill = valToFill.replace(/^(email|e-mail|tel|phone|mobile|fax|addr|address|電話|手機|傳真|地址|信箱|郵件)\s*[:：\s]\s*/i, '').trim();
+        
+        // 💡 Email 專屬：自動去除所有內部空格
+        if (f.id === 'fEmail') {
+          valToFill = valToFill.replace(/\s+/g, '');
+        }
+
+        var select = input.parentNode.querySelector('.dynamic-select');
+        if (select) {
+          var exists = false;
+          for (var i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === valToFill) { exists = true; select.value = valToFill; break; }
+          }
+          if (!exists) {
+            var newOpt = document.createElement('option');
+            newOpt.value = valToFill;
+            newOpt.textContent = valToFill;
+            select.insertBefore(newOpt, select.lastChild);
+            select.value = valToFill;
+          }
+        }
+        input.value = valToFill;
+        
+        var ev = new Event('change', { bubbles: true });
+        input.dispatchEvent(ev);
+        toast('✅ 已填入: ' + valToFill, 'ok');
+      }
+      menu.parentNode.removeChild(menu);
+    };
+    menu.appendChild(item);
+  });
+  
+  setTimeout(function() {
+    function closeMenu(e) {
+      if (!menu.contains(e.target) && e.target !== btn) {
+        if (menu.parentNode) menu.parentNode.removeChild(menu);
+        document.removeEventListener('click', closeMenu);
+      }
+    }
+    document.addEventListener('click', closeMenu);
+  }, 10);
+  
+  document.body.appendChild(menu);
+  
+  var rect = btn.getBoundingClientRect();
+  var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+  var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+  
+  menu.style.top = (rect.bottom + scrollTop + 4) + 'px';
+  menu.style.left = (rect.left + scrollLeft) + 'px';
+}
+
+
+
+// ────────────────────────────────────────────
+// 匯出
+// ────────────────────────────────────────────
+async function doExportCSV() {
+  var cards = await dbAll();
+  var header = ['姓名','公司','職稱','電話','Email','地址','業種','區域','生日','名片底色','特色備註','建立時間'];
+  var rows = cards.map(function(c) {
+    return [c.name,c.company,c.title,c.phone,c.email,c.address,
+      getCategoryName(c.industry),c.region,c.birthday,c.bgColor,
+      (c.note||'').replace(/\n/g,'｜'),
+      c.createdAt ? new Date(c.createdAt).toLocaleDateString('zh-TW') : ''
+    ].map(function(v){ return '"'+String(v||'').replace(/"/g,'""')+'"'; }).join(',');
+  });
+  dl([header.join(',')].concat(rows).join('\n'), '善緣名片王_匯出.csv', 'text/csv;charset=utf-8;');
+  toast('CSV 匯出完成', 'ok');
+}
+
+async function doExportVCard() {
+  var cards = await dbAll();
+  var vcf = cards.map(function(c) {
+    return ['BEGIN:VCARD','VERSION:3.0',
+      'FN:'+(c.name||''), 'TITLE:'+(c.title||''), 'ORG:'+(c.company||''),
+      'TEL:'+(c.phone||''), 'EMAIL:'+(c.email||''),
+      'ADR:;;'+(c.address||'')+';;;;',
+      c.note ? 'NOTE:'+c.note.replace(/\n/g,'\\n') : '',
+      'END:VCARD'
+    ].filter(Boolean).join('\r\n');
+  }).join('\r\n\r\n');
+  dl(vcf, '善緣名片王_名片.vcf', 'text/vcard;charset=utf-8;');
+  toast('vCard 匯出完成', 'ok');
+}
+
+function dl(content, filename, type) {
+  var blob = new Blob(['\ufeff'+content], { type:type });
+  var url  = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+
+// ────────────────────────────────────────────
+// Toast
+// ────────────────────────────────────────────
+function toast(msg, type) {
+  type = type||'info';
+  var root = document.getElementById('toast-root');
+  var icons = { ok:'✓', err:'✕', info:'·' };
+  var el = document.createElement('div');
+  el.className = 'toast toast--'+(type==='ok'?'ok':type==='err'?'err':'info');
+  el.innerHTML = '<span>'+icons[type]+'</span> '+esc(msg);
+  root.appendChild(el);
+  setTimeout(function() {
+    el.style.animation = 'toastOut 240ms ease forwards';
+    setTimeout(function(){ el.remove(); }, 240);
+  }, 3000);
+}
+
+// ────────────────────────────────────────────
+// HTML 轉義
+// ────────────────────────────────────────────
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ────────────────────────────────────────────
+// 事件綁定
+// ────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async function() {
+
+  // 初始化 DB 與分類數據
+  try {
+    await openDB();
+  } catch(err) {
+    console.error("IndexedDB open failed:", err);
+  }
+  
+  try {
+    await initCategories();
+  } catch(err) {
+    console.error("Categories init failed:", err);
+  }
+
+  try {
+    S.geminiKey = await metaGet('geminiKey') || '';
+  } catch(err) {
+    S.geminiKey = '';
+  }
+
+  try {
+    populateIndustrySelect();
+  } catch(err) {
+    console.error("populateIndustrySelect failed:", err);
+  }
+
+  // 導覽列
+  document.getElementById('bottomNav').addEventListener('click', function(e) {
+    var btn = e.target.closest('.nav-btn');
+    if (!btn || !btn.dataset.page) return;
+    S.editId = null;
+    goTo(btn.dataset.page);
+  });
+
+  // 篩選 chips
+  var filterRowEl = document.getElementById('filterRow');
+  if (filterRowEl) {
+    filterRowEl.addEventListener('click', function(e) {
+      var btn = e.target.closest('.chip');
+      if (!btn) return;
+      document.querySelectorAll('#filterRow .chip').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      S.ind = btn.dataset.ind;
+      applyFilter();
+    });
+
+    // 讓電腦版滑鼠滾輪可以橫向滾動分類晶片列
+    filterRowEl.addEventListener('wheel', function(e) {
+      if (e.deltaY !== 0) {
+        filterRowEl.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    }, { passive: false });
+  }
+
+  // 搜尋
+  var st;
+  document.getElementById('searchInput').addEventListener('input', function(e) {
+    clearTimeout(st);
+    st = setTimeout(function() { S.query = e.target.value; applyFilter(); }, 280);
+  });
+
+  // 地址欄位自動偵測區域事件綁定
+  var addrInput = document.getElementById('fAddress');
+  if (addrInput) {
+    addrInput.addEventListener('input', autoDetectRegionFromAddress);
+    addrInput.addEventListener('change', autoDetectRegionFromAddress);
+  }
+
+  // 初始載入
+  try {
+    goTo('categories');
+  } catch(err) {
+    console.error("goTo categories failed:", err);
+  }
+
+  // ── 徹底註銷並清除舊的 Service Worker 以防快取鎖死 ──
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for (var reg of registrations) {
+        reg.unregister().then(function() {
+          console.log('[ServiceWorker] 註銷成功');
+        });
+      }
+    });
+  }
+});
+</script>
+
+
+  
+  <!-- 智慧相機 Modal (iOS 備忘錄風格全自動感應掃描) -->
+  <div id="cameraModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; flex-direction:column; align-items:center; justify-content:space-between; padding: 20px 0; color:#fff; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <!-- 頂部控制 -->
+    <div style="width:90%; display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:18px; font-weight:600; letter-spacing:1px; color:#FFD54F;">📸 AI 自動感應鎖定</div>
+      <button type="button" onclick="closeCamera()" style="background:none; border:none; color:#fff; font-size:28px; cursor:pointer;">✕</button>
+    </div>
+    
+    <!-- 視訊與定位引導框區域 -->
+    <div style="position:relative; width:90%; max-width:400px; aspect-ratio:1.6 / 1; border-radius:12px; overflow:hidden; border:2px solid rgba(255,255,255,0.2); background:#111;">
+      <video id="cameraVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+      
+      <!-- ⚠️ 蘋果備忘錄風格：淡黃色半透明名片鎖定引導框 -->
+      <div style="position:absolute; top:8%; left:8%; width:84%; height:84%; border:3.5px solid #FFD54F; border-radius:8px; background:rgba(255, 213, 79, 0.18); box-shadow:0 0 15px rgba(255, 213, 79, 0.4); pointer-events:none; box-sizing:border-box; animation: pulse 1.8s ease-in-out infinite;">
+        <!-- 角隅加強標記 -->
+        <div style="position:absolute; top:-5px; left:-5px; width:22px; height:22px; border-top:5px solid #FFD54F; border-left:5px solid #FFD54F;"></div>
+        <div style="position:absolute; top:-5px; right:-5px; width:22px; height:22px; border-top:5px solid #FFD54F; border-right:5px solid #FFD54F;"></div>
+        <div style="position:absolute; bottom:-5px; left:-5px; width:22px; height:22px; border-bottom:5px solid #FFD54F; border-left:5px solid #FFD54F;"></div>
+        <div style="position:absolute; bottom:-5px; right:-5px; width:22px; height:22px; border-bottom:5px solid #FFD54F; border-right:5px solid #FFD54F;"></div>
+      </div>
+      
+      <!-- 實時掃描雷射 -->
+      <div style="position:absolute; top:0; left:0; width:100%; height:3px; background:linear-gradient(to right, transparent, #FFD54F, transparent); box-shadow:0 0 10px #FFD54F; animation: scan 2s linear infinite;"></div>
+    </div>
+    
+    <!-- 底部全自動提示 -->
+    <div style="width:100%; display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:30px;">
+      <div id="shutterCountdown" style="font-size:26px; font-weight:700; color:#FFD54F; text-shadow:0 2px 4px rgba(0,0,0,0.5);">🟡 偵測名片中…</div>
+      <div style="font-size:13px; color:#B0B0B0; text-align:center; padding:0 20px;">
+        對準黃色鎖定區即可 ⚡️ 系統將自動感應快門拍照
+      </div>
+    </div>
+  </div>
+
+  <!-- 📸 iOS 備忘錄風格：暫存與存檔確認 Modal -->
+  <div id="confirmModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#111; z-index:10001; flex-direction:column; align-items:center; justify-content:space-between; padding: 40px 0; color:#fff; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; user-select:none; -webkit-user-select:none;">
+    <div style="font-size:18px; font-weight:600; letter-spacing:1px; margin-top:20px;">📸 掃描成果暫存區</div>
+    
+    <div id="confirmPreviewImgWrapper" style="width:90%; max-width:340px; aspect-ratio:1.6 / 1; border-radius:12px; overflow:hidden; box-shadow:0 12px 30px rgba(0,0,0,0.6); background:#222; border:1px solid rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center;">
+      <img id="confirmPreviewImg" style="max-width:100%; max-height:100%; object-fit:contain; display:block;">
+    </div>
+    <div id="confirmDiagnosticInfo" style="font-size:11px; color:#FFD54F; font-family:monospace; text-align:center; padding:0 10px; width:90%; word-break:break-all;">🔍 AI 定位點: 偵測中...</div>
+    
+    <div style="font-size:13px; color:#A0A0A0; text-align:center; padding:0 20px; line-height:1.4;">
+      已為您自動切除背景、完成 3D 擺平！<br>若方向歪斜（如直式名片橫拍），請利用下方按鈕旋轉翻正，以利 AI 辨識。
+    </div>
+    
+    <!-- 旋轉控制按鈕 -->
+    <div style="display:flex; justify-content:center; gap:15px; width:90%; margin-bottom:5px;">
+      <button type="button" onclick="rotateConfirmPhoto(-90)" style="flex:1; padding: 12px 0; font-size: 13px; font-weight: 600; border-radius: 20px; background: #2A2A2A; border: 1px solid #444; color: #fff; cursor:pointer; transition:background 0.2s;">🔄 向左旋轉</button>
+      <button type="button" onclick="rotateConfirmPhoto(90)" style="flex:1; padding: 12px 0; font-size: 13px; font-weight: 600; border-radius: 20px; background: #2A2A2A; border: 1px solid #444; color: #fff; cursor:pointer; transition:background 0.2s;">🔄 向右旋轉</button>
+    </div>
+    
+    <!-- 重新拍攝與保留存檔大按鈕 -->
+    <div style="width:90%; display:flex; justify-content:space-between; gap:15px; margin-bottom:20px;">
+      <button type="button" onclick="retakePhoto()" style="flex:1; background:#2A2A2A; border:1px solid #444; color:#fff; padding:15px 0; border-radius:28px; font-weight:600; font-size:15px; cursor:pointer; outline:none; transition:background 0.2s;">🔄 重新拍攝</button>
+      <button type="button" onclick="savePhotoAndGo()" style="flex:1; background:#00E676; border:none; color:#fff; padding:15px 0; border-radius:28px; font-weight:600; font-size:15px; cursor:pointer; box-shadow:0 4px 15px rgba(0,230,118,0.3); outline:none; transition:background 0.2s;">✅ 保留並儲存</button>
+    </div>
+  </div>
+
+  <style>
+    @keyframes scan {
+      0% { top: 0%; }
+      50% { top: 100%; }
+      100% { top: 0%; }
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); background: rgba(255, 213, 79, 0.18); }
+      50% { transform: scale(1.01); background: rgba(255, 213, 79, 0.25); }
+    }
+  </style>
+</body>
